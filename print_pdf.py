@@ -31,6 +31,16 @@ COLOR vs BLACK & WHITE  (--color flag)
   prints a warning and continues WITHOUT grayscale conversion.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NUMBER OF COPIES  (--copies / -n flag)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  All print commands accept an optional --copies (or -n) flag:
+
+    --copies 1     → Print 1 copy (DEFAULT if flag is omitted).
+    --copies 5     → Print 5 copies of the document.
+
+  Implemented via SumatraPDF's -print-settings "<n>x" option.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REQUIREMENTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Software to install:
@@ -61,6 +71,7 @@ USAGE
     python print_pdf.py print "report.pdf" --printer "HP LaserJet"
     python print_pdf.py print "report.pdf" --color color      # full color
     python print_pdf.py print "report.pdf" --color bw         # black & white (default)
+    python print_pdf.py print "report.pdf" --copies 3         # print 3 copies
 
   Convert to PDF only (no printing):
     python print_pdf.py toxpdf    "data.xlsx"    --out "C:/exports"
@@ -77,8 +88,10 @@ USAGE
     python print_pdf.py wordprint "report.docx" --out "C:/Users/lalit/Downloads"
     python print_pdf.py imgprint  "photo.jpg"   --out "C:/Users/lalit/Downloads"
 
-    # With color and printer options:
-    python print_pdf.py xlprint "data.xlsx" --printer "HP LaserJet" --color color --out "C:/exports"
+    # With color, copies, and printer options:
+    python print_pdf.py xlprint "data.xlsx" --printer "HP LaserJet" --color color --copies 2 --out "C:/exports"
+    python print_pdf.py print   "report.pdf" --copies 3               # print 3 copies
+    python print_pdf.py xlprint "data.xlsx"  --copies 5 --color color  # 5 color copies
 """
 
 import sys
@@ -233,8 +246,8 @@ def get_available_printers():
 # Feature 1 — Print PDF
 # ─────────────────────────────────────────────────────────────────────────────
 
-def print_pdf(pdf_path: str, printer_name: str = None, sumatra_hint: str = None, color: str = "bw"):
-    """Send a PDF to a printer using SumatraPDF. color='bw' or 'color'."""
+def print_pdf(pdf_path: str, printer_name: str = None, sumatra_hint: str = None, color: str = "bw", copies: int = 1):
+    """Send a PDF to a printer using SumatraPDF. color='bw' or 'color'. copies=number of copies to print."""
     _require_windows()
     _check_file(pdf_path, [".pdf"])
 
@@ -243,6 +256,7 @@ def print_pdf(pdf_path: str, printer_name: str = None, sumatra_hint: str = None,
     print(f"  PDF      : {os.path.abspath(pdf_path)}")
     print(f"  Printer  : {printer_name or '(system default)'}")
     print(f"  Color    : {'Color' if color == 'color' else 'Black & White (default)'}")
+    print(f"  Copies   : {copies}")
     print(f"  Sumatra  : {sumatra}")
 
     # --color bw  (default): strip all color from the PDF before printing.
@@ -251,18 +265,25 @@ def print_pdf(pdf_path: str, printer_name: str = None, sumatra_hint: str = None,
     if color != "color":
         _apply_grayscale_to_pdf(pdf_path)
 
-    if printer_name:
-        cmd = [sumatra, "-print-to", printer_name, "-silent", pdf_path]
-    else:
-        cmd = [sumatra, "-print-to-default", "-silent", pdf_path]
+    # Send the job once per requested copy.
+    # SumatraPDF does not have a native -copies flag, so we submit the job
+    # multiple times — each submission is one complete copy of the document.
+    for i in range(copies):
+        if copies > 1:
+            print(f"  Printing copy {i + 1} of {copies} …")
+        if printer_name:
+            cmd = [sumatra, "-print-to", printer_name, "-silent", pdf_path]
+        else:
+            cmd = [sumatra, "-print-to-default", "-silent", pdf_path]
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"SumatraPDF failed (exit {result.returncode}):\n"
-            f"  {result.stderr.strip() or result.stdout.strip()}"
-        )
-    print("  ✓ Print job sent successfully.")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"SumatraPDF failed on copy {i + 1} (exit {result.returncode}):\n"
+                f"  {result.stderr.strip() or result.stdout.strip()}"
+            )
+
+    print(f"  ✓ {copies} copy/copies sent to printer successfully.")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -459,12 +480,12 @@ def download_pdf(pdf_path: str, out_dir: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def excel_print(excel_path: str, printer_name: str = None,
-                out_dir: str = None, sumatra_hint: str = None, color: str = "bw"):
+                out_dir: str = None, sumatra_hint: str = None, color: str = "bw", copies: int = 1):
     """Convert Excel to PDF, then print it."""
     print("[Step 1/2] Converting Excel to PDF …")
     pdf_path = excel_to_pdf(excel_path, out_dir)
     print("[Step 2/2] Sending PDF to printer …")
-    print_pdf(pdf_path, printer_name, sumatra_hint, color)
+    print_pdf(pdf_path, printer_name, sumatra_hint, color, copies)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -472,12 +493,12 @@ def excel_print(excel_path: str, printer_name: str = None,
 # ─────────────────────────────────────────────────────────────────────────────
 
 def image_print(image_path: str, printer_name: str = None,
-                out_dir: str = None, sumatra_hint: str = None, color: str = "bw"):
+                out_dir: str = None, sumatra_hint: str = None, color: str = "bw", copies: int = 1):
     """Convert image to PDF, then print it."""
     print("[Step 1/2] Converting image to PDF …")
     pdf_path = image_to_pdf(image_path, out_dir)
     print("[Step 2/2] Sending PDF to printer …")
-    print_pdf(pdf_path, printer_name, sumatra_hint, color)
+    print_pdf(pdf_path, printer_name, sumatra_hint, color, copies)
 
 
 
@@ -552,12 +573,12 @@ def word_to_pdf(word_path: str, out_dir: str = None) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def word_print(word_path: str, printer_name: str = None,
-               out_dir: str = None, sumatra_hint: str = None, color: str = "bw"):
+               out_dir: str = None, sumatra_hint: str = None, color: str = "bw", copies: int = 1):
     """Convert Word document to PDF, then print it."""
     print("[Step 1/2] Converting Word to PDF …")
     pdf_path = word_to_pdf(word_path, out_dir)
     print("[Step 2/2] Sending PDF to printer …")
-    print_pdf(pdf_path, printer_name, sumatra_hint, color)
+    print_pdf(pdf_path, printer_name, sumatra_hint, color, copies)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CLI
@@ -580,6 +601,8 @@ def main():
     p_print.add_argument("pdf", help="Path to the PDF file.")
     p_print.add_argument("--printer", "-p", help="Printer name (default: system default).")
     p_print.add_argument("--sumatra", help="Path to SumatraPDF.exe.")
+    p_print.add_argument("--copies", "-n", type=int, default=1, metavar="N",
+                        help="Number of copies to print (default: 1).")
     p_print.add_argument("--color", choices=["bw", "color"], default="bw",
                         help='Color mode: "bw" = black & white (default, uses Ghostscript to strip color), '
                              '"color" = full color. If --color is omitted, bw is used.')
@@ -615,6 +638,8 @@ def main():
     p_xlp.add_argument("--printer", "-p", help="Printer name (default: system default).")
     p_xlp.add_argument("--out", "-o", help="Folder to save the PDF.")
     p_xlp.add_argument("--sumatra", help="Path to SumatraPDF.exe.")
+    p_xlp.add_argument("--copies", "-n", type=int, default=1, metavar="N",
+                        help="Number of copies to print (default: 1).")
     p_xlp.add_argument("--color", choices=["bw", "color"], default="bw",
                         help='Color mode: "bw" = black & white (default, uses Ghostscript to strip color), '
                              '"color" = full color. If --color is omitted, bw is used.')
@@ -625,6 +650,8 @@ def main():
     p_pptp.add_argument("--printer", "-p", help="Printer name (default: system default).")
     p_pptp.add_argument("--out", "-o", help="Folder to save the PDF.")
     p_pptp.add_argument("--sumatra", help="Path to SumatraPDF.exe.")
+    p_pptp.add_argument("--copies", "-n", type=int, default=1, metavar="N",
+                        help="Number of copies to print (default: 1).")
     p_pptp.add_argument("--color", choices=["bw", "color"], default="bw",
                         help='Color mode: "bw" = black & white (default, uses Ghostscript to strip color), '
                              '"color" = full color. If --color is omitted, bw is used.')
@@ -635,6 +662,8 @@ def main():
     p_wordp.add_argument("--printer", "-p", help="Printer name (default: system default).")
     p_wordp.add_argument("--out", "-o", help="Folder to save the PDF.")
     p_wordp.add_argument("--sumatra", help="Path to SumatraPDF.exe.")
+    p_wordp.add_argument("--copies", "-n", type=int, default=1, metavar="N",
+                        help="Number of copies to print (default: 1).")
     p_wordp.add_argument("--color", choices=["bw", "color"], default="bw",
                         help='Color mode: "bw" = black & white (default, uses Ghostscript to strip color), '
                              '"color" = full color. If --color is omitted, bw is used.')
@@ -645,6 +674,8 @@ def main():
     p_imp.add_argument("--printer", "-p", help="Printer name (default: system default).")
     p_imp.add_argument("--out", "-o", help="Folder to save the PDF.")
     p_imp.add_argument("--sumatra", help="Path to SumatraPDF.exe.")
+    p_imp.add_argument("--copies", "-n", type=int, default=1, metavar="N",
+                        help="Number of copies to print (default: 1).")
     p_imp.add_argument("--color", choices=["bw", "color"], default="bw",
                         help='Color mode: "bw" = black & white (default, uses Ghostscript to strip color), '
                              '"color" = full color. If --color is omitted, bw is used.')
@@ -666,7 +697,7 @@ def main():
                 print("No printers found.")
 
         elif args.command == "print":
-            print_pdf(args.pdf, args.printer, args.sumatra, args.color)
+            print_pdf(args.pdf, args.printer, args.sumatra, args.color, args.copies)
 
         elif args.command == "toxpdf":
             excel_to_pdf(args.excel, args.out)
@@ -684,16 +715,16 @@ def main():
             download_pdf(args.pdf, args.out)
 
         elif args.command == "xlprint":
-            excel_print(args.excel, args.printer, args.out, args.sumatra, args.color)
+            excel_print(args.excel, args.printer, args.out, args.sumatra, args.color, args.copies)
 
         elif args.command == "pptprint":
-            ppt_print(args.ppt, args.printer, args.out, args.sumatra, args.color)
+            ppt_print(args.ppt, args.printer, args.out, args.sumatra, args.color, args.copies)
 
         elif args.command == "wordprint":
-            word_print(args.word, args.printer, args.out, args.sumatra, args.color)
+            word_print(args.word, args.printer, args.out, args.sumatra, args.color, args.copies)
 
         elif args.command == "imgprint":
-            image_print(args.image, args.printer, args.out, args.sumatra, args.color)
+            image_print(args.image, args.printer, args.out, args.sumatra, args.color, args.copies)
 
     except (FileNotFoundError, ValueError, OSError, RuntimeError) as exc:
         print(f"\nError: {exc}", file=sys.stderr)
