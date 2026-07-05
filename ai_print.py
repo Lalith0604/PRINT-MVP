@@ -15,15 +15,38 @@ SETUP
 
   3. Install dependency:
        pip install groq
-
-in cmd
-       # Install Groq
-pip install groq
-
 # Get a free API key at https://console.groq.com
 # Then set it (CMD):
 set GROQ_API_KEY=your_key_here
 
+
+
+You: Print C:\docs\report.pdf, C:\pics\photo.jpg and C:\slides\deck.pptx in black and white 2 copies
+
+  Here's what I understood (3 files):
+
+  ── Job 1 of 3 ──────────────────────
+  Action   : Print PDF
+  File     : C:\docs\report.pdf
+  Printer  : system default
+  Color    : Black & White
+  Copies   : 2
+  ── Job 2 of 3 ──────────────────────
+  Action   : Convert Image → PDF → Print
+  File     : C:\pics\photo.jpg
+  ...
+  ── Job 3 of 3 ──────────────────────
+  Action   : Convert PowerPoint → PDF → Print
+  File     : C:\slides\deck.pptx
+  ...
+
+  Proceed? [Y/n]: y
+
+  [1/3] Running: ...   ✓
+  [2/3] Running: ...   ✓
+  [3/3] Running: ...   ✓
+
+  ━━━ Done: 3/3 jobs completed successfully. ━━━
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 USAGE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -71,33 +94,43 @@ def get_groq_client():
 
 SYSTEM_PROMPT = """
 You are a smart print assistant. The user will describe what they want to do
-with a file (print it, convert it, save a copy, etc.) in plain English.
+with one or more files in plain English. They may also ask for utility actions
+like listing printers.
 
-Your job is to extract the intent and return ONLY a valid JSON object — no
-explanation, no markdown, no code fences — just raw JSON.
+Your job is to extract ALL file intents and return ONLY a valid JSON object —
+no explanation, no markdown, no code fences — just raw JSON.
 
 JSON schema:
 {
-  "command":      string,   // one of: print | toxpdf | pptpdf | wordpdf | imgpdf | download | xlprint | pptprint | wordprint | imgprint
-  "file":         string,   // the file path the user mentioned (required)
-  "printer":      string | null,   // printer name if mentioned, else null
-  "color":        "bw" | "color",  // default "bw" unless user says color/colour
-  "copies":       integer,          // default 1
-  "out":          string | null,   // output folder if mentioned, else null
-  "clarify":      string | null    // if you cannot determine the command or file, set this to a short question to ask the user; leave null if you have enough info
+  "jobs": [
+    {
+      "command":  string,        // one of: printers | print | toxpdf | pptpdf | wordpdf | imgpdf | download | xlprint | pptprint | wordprint | imgprint
+      "file":     string | null, // the file path for this job. null only for "printers"
+      "printer":  string | null, // printer name if mentioned, else null
+      "color":    "bw" | "color",// default "bw" unless user says color/colour
+      "copies":   integer,       // default 1
+      "out":      string | null  // output folder if mentioned, else null
+    }
+  ],
+  "clarify": string | null       // if you truly cannot understand the request, ask a short question. null otherwise
 }
 
-Command selection rules:
-- User wants to PRINT a PDF → "print"
-- User wants to PRINT an Excel/xlsx/xls → "xlprint"
-- User wants to PRINT a PowerPoint/pptx/ppt → "pptprint"
-- User wants to PRINT a Word/docx/doc → "wordprint"
-- User wants to PRINT an image (jpg/png/bmp/tiff/gif/webp) → "imgprint"
-- User wants to CONVERT Excel to PDF only (no print) → "toxpdf"
-- User wants to CONVERT PowerPoint to PDF only → "pptpdf"
-- User wants to CONVERT Word to PDF only → "wordpdf"
-- User wants to CONVERT image to PDF only → "imgpdf"
-- User wants to DOWNLOAD/SAVE/COPY a PDF → "download"
+MULTI-FILE RULES:
+- If the user mentions multiple files, create one job object per file in the "jobs" array.
+- Each file gets its own command based on its extension.
+- Shared settings (color, copies, printer) apply to ALL jobs unless stated differently per file.
+- Example: "print sales.pdf, photo.jpg and slides.pptx in bw 2 copies"
+  → 3 jobs: print + imgprint + pptprint, all with color=bw, copies=2
+
+Command selection rules (per file extension):
+- User wants to LIST / SHOW / GET printers → "printers" (one job, no file)
+- .pdf → "print"
+- .xlsx / .xls / .xlsm → "xlprint"
+- .pptx / .ppt / .pptm / .odp → "pptprint"
+- .docx / .doc / .odt / .rtf → "wordprint"
+- .jpg / .jpeg / .png / .bmp / .tiff / .gif / .webp → "imgprint"
+- CONVERT only (no print): use toxpdf / pptpdf / wordpdf / imgpdf
+- DOWNLOAD/SAVE/COPY a PDF → "download"
 
 Color rules:
 - "black and white", "bw", "grayscale", "greyscale", "no color" → "bw"
@@ -108,7 +141,7 @@ Copies rules:
 - Extract any number mentioned: "3 copies", "print 5", "×2" → that number
 - If not mentioned → 1
 
-Always return valid JSON. Never return anything except the JSON object.
+Always return valid JSON with a "jobs" array. Never return anything else.
 """
 
 
@@ -122,7 +155,7 @@ def parse_intent(client, user_input: str) -> dict:
             {"role": "user",   "content": user_input},
         ],
         temperature=0,
-        max_tokens=300,
+        max_tokens=800,  # increased for multi-file responses
     )
     raw = response.choices[0].message.content.strip()
 
@@ -134,45 +167,53 @@ def parse_intent(client, user_input: str) -> dict:
     raw = raw.strip()
 
     try:
-        return json.loads(raw)
+        parsed = json.loads(raw)
+        # Normalise: if old single-job format returned, wrap it
+        if "jobs" not in parsed and "command" in parsed:
+            parsed = {"jobs": [parsed], "clarify": parsed.get("clarify")}
+        return parsed
     except json.JSONDecodeError:
         return {"clarify": f"I couldn't parse your request. Could you rephrase it?\n(Raw AI output: {raw})"}
 
 
 # ── Build and run the print_pdf.py command ────────────────────────────────────
 
-def run_command(intent: dict) -> None:
-    """Translate the parsed JSON intent into a print_pdf.py CLI call."""
+def run_single_job(job: dict, print_script: str, job_num: int = None, total: int = None) -> bool:
+    """
+    Run one print/convert job. Returns True on success, False on failure.
+    job_num / total are used for progress display when printing multiple files.
+    """
+    command = job.get("command")
+    file    = job.get("file")
+    printer = job.get("printer")
+    color   = job.get("color", "bw")
+    copies  = int(job.get("copies", 1))
+    out     = job.get("out")
 
-    # Path to print_pdf.py — assumes same folder as this script
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    print_script = os.path.join(script_dir, "print_pdf.py")
-
-    if not os.path.isfile(print_script):
-        print(f"\n  ✗ Could not find print_pdf.py at: {print_script}")
-        print("    Make sure ai_print.py and print_pdf.py are in the same folder.")
-        return
-
-    command = intent.get("command")
-    file    = intent.get("file")
-    printer = intent.get("printer")
-    color   = intent.get("color", "bw")
-    copies  = int(intent.get("copies", 1))
-    out     = intent.get("out")
+    prefix = ""
+    if job_num is not None and total is not None and total > 1:
+        prefix = f"[{job_num}/{total}] "
 
     if not command:
-        print("  ✗ AI could not determine the command. Please try again.")
-        return
+        print(f"  {prefix}✗ Could not determine command. Skipping.")
+        return False
+
+    # printers command needs no file
+    if command == "printers":
+        cmd = [sys.executable, print_script, "printers"]
+        display_cmd = " ".join(cmd)
+        print(f"\n  {prefix}Running: {display_cmd}\n")
+        subprocess.run(cmd)
+        return True
 
     if not file:
-        print("  ✗ AI could not find a file path in your message. Please include the file path.")
-        return
+        print(f"  {prefix}✗ No file path found. Skipping.")
+        return False
 
-    # Build the command list
+    # Build the CLI command
     cmd = [sys.executable, print_script, command, file]
 
-    # Append options depending on command type
-    print_commands = {"print", "xlprint", "pptprint", "wordprint", "imgprint"}
+    print_commands   = {"print", "xlprint", "pptprint", "wordprint", "imgprint"}
     convert_commands = {"toxpdf", "pptpdf", "wordpdf", "imgpdf"}
 
     if command in print_commands:
@@ -191,35 +232,60 @@ def run_command(intent: dict) -> None:
         if out:
             cmd += ["--out", out]
         else:
-            # download requires --out, ask for it
-            out = input("  Where do you want to save it? Enter folder path: ").strip()
+            out = input(f"  {prefix}Where to save? Enter folder path: ").strip()
             if out:
                 cmd += ["--out", out]
             else:
-                print("  ✗ Output folder is required for download. Cancelled.")
-                return
+                print(f"  {prefix}✗ Output folder required. Skipping.")
+                return False
 
-    # Show the command being run
     display_cmd = " ".join(f'"{c}"' if " " in c else c for c in cmd)
-    print(f"\n  Running: {display_cmd}\n")
+    print(f"\n  {prefix}Running: {display_cmd}\n")
 
-    # Execute
     result = subprocess.run(cmd)
     if result.returncode != 0:
-        print("\n  ✗ Command failed. See error above.")
+        print(f"\n  {prefix}✗ Command failed. See error above.")
+        return False
+    return True
+
+
+def run_command(intent: dict) -> None:
+    """
+    Run all jobs from the parsed intent, one by one.
+    Shows progress when multiple files are involved.
+    """
+    script_dir   = os.path.dirname(os.path.abspath(__file__))
+    print_script = os.path.join(script_dir, "print_pdf.py")
+
+    if not os.path.isfile(print_script):
+        print(f"\n  ✗ Could not find print_pdf.py at: {print_script}")
+        print("    Make sure ai_print.py and print_pdf.py are in the same folder.")
+        return
+
+    jobs  = intent.get("jobs", [])
+    total = len(jobs)
+
+    if total == 0:
+        print("  ✗ No jobs found. Please try again.")
+        return
+
+    success_count = 0
+    for i, job in enumerate(jobs, start=1):
+        ok = run_single_job(job, print_script, job_num=i, total=total)
+        if ok:
+            success_count += 1
+        if i < total:
+            print()  # blank line between jobs
+
+    if total > 1:
+        print(f"\n  ━━━ Done: {success_count}/{total} jobs completed successfully. ━━━")
 
 
 # ── Pretty summary of what AI understood ─────────────────────────────────────
 
 def summarise_intent(intent: dict) -> str:
-    cmd     = intent.get("command", "?")
-    file    = intent.get("file", "?")
-    printer = intent.get("printer") or "system default"
-    color   = intent.get("color", "bw")
-    copies  = intent.get("copies", 1)
-    out     = intent.get("out") or "same folder as file"
-
     cmd_labels = {
+        "printers":   "List available printers",
         "print":      "Print PDF",
         "xlprint":    "Convert Excel → PDF → Print",
         "pptprint":   "Convert PowerPoint → PDF → Print",
@@ -231,19 +297,35 @@ def summarise_intent(intent: dict) -> str:
         "imgpdf":     "Convert Image → PDF",
         "download":   "Download / Save PDF copy",
     }
+    print_commands = {"print", "xlprint", "pptprint", "wordprint", "imgprint"}
 
-    lines = [
-        f"  Action   : {cmd_labels.get(cmd, cmd)}",
-        f"  File     : {file}",
-    ]
-    if cmd in {"print", "xlprint", "pptprint", "wordprint", "imgprint"}:
-        lines += [
-            f"  Printer  : {printer}",
-            f"  Color    : {'Full Color' if color == 'color' else 'Black & White'}",
-            f"  Copies   : {copies}",
-        ]
-    if cmd not in {"print"} and cmd != "download" or out != "same folder as file":
-        lines.append(f"  Save to  : {out}")
+    jobs  = intent.get("jobs", [])
+    total = len(jobs)
+    lines = []
+
+    for i, job in enumerate(jobs, start=1):
+        cmd     = job.get("command", "?")
+        file    = job.get("file", "?")
+        printer = job.get("printer") or "system default"
+        color   = job.get("color", "bw")
+        copies  = job.get("copies", 1)
+        out     = job.get("out") or "same folder as file"
+
+        if total > 1:
+            lines.append(f"  ── Job {i} of {total} ──────────────────────")
+
+        if cmd == "printers":
+            lines.append("  Action   : List all available printers")
+            continue
+
+        lines.append(f"  Action   : {cmd_labels.get(cmd, cmd)}")
+        lines.append(f"  File     : {file}")
+        if cmd in print_commands:
+            lines.append(f"  Printer  : {printer}")
+            lines.append(f"  Color    : {'Full Color' if color == 'color' else 'Black & White'}")
+            lines.append(f"  Copies   : {copies}")
+        if out != "same folder as file":
+            lines.append(f"  Save to  : {out}")
 
     return "\n".join(lines)
 
@@ -254,6 +336,11 @@ HELP_TEXT = """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  AI PRINT ASSISTANT — Example prompts
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  List printers:
+    List my printers
+    Show available printers
+    What printers do I have?
 
   Print a PDF:
     Print C:/reports/sales.pdf in black and white
@@ -278,6 +365,11 @@ HELP_TEXT = """
 
   Save a PDF copy:
     Save a copy of C:/reports/final.pdf to C:/Users/lalit/Downloads
+
+  Multiple files at once:
+    Print C:/docs/report.pdf and C:/pics/photo.jpg in black and white
+    Print C:/report.pdf, C:/slides.pptx and C:/photo.png 2 copies color
+    Print C:/a.pdf C:/b.xlsx C:/c.pptx on HP LaserJet bw 3 copies
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
