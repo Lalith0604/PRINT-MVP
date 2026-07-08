@@ -1,53 +1,53 @@
 """
-whatsapp_server.py — WhatsApp Print Assistant via Twilio + Flask
+whatsapp_server.py -- WhatsApp Print Assistant via Twilio + Flask
 
 How it works:
-  WhatsApp message → Twilio → this Flask server → Groq AI → print_pdf.py → printer
+  WhatsApp message -> Twilio -> this Flask server -> Groq AI -> print_pdf.py -> printer
   Then replies back on WhatsApp with the result.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+------------------------------------------------------------
 ONE-TIME SETUP (do this once)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+------------------------------------------------------------
 
-STEP 1 — Install dependencies:
+STEP 1 -- Install dependencies:
     pip install twilio flask groq
 
-STEP 2 — Get a free Twilio account:
+STEP 2 -- Get a free Twilio account:
     https://www.twilio.com/try-twilio
 
-STEP 3 — Set up Twilio WhatsApp Sandbox:
-    → Twilio Console → Messaging → Try it out → Send a WhatsApp message
-    → Follow the instructions to join the sandbox from your WhatsApp
+STEP 3 -- Set up Twilio WhatsApp Sandbox:
+    -> Twilio Console -> Messaging -> Try it out -> Send a WhatsApp message
+    -> Follow the instructions to join the sandbox from your WhatsApp
 
-STEP 4 — Get your Twilio credentials:
-    → Twilio Console → Account Info → copy Account SID and Auth Token
+STEP 4 -- Get your Twilio credentials:
+    -> Twilio Console -> Account Info -> copy Account SID and Auth Token
 
-STEP 5 — Get a free Groq API key:
+STEP 5 -- Get a free Groq API key:
     https://console.groq.com
 
-STEP 6 — Set environment variables (run these in CMD before starting server):
+STEP 6 -- Set environment variables (run these in CMD before starting server):
     set TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
     set TWILIO_AUTH_TOKEN=your_auth_token_here
     set TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
     set GROQ_API_KEY=your_groq_key_here
 
-STEP 7 — Install and start ngrok to expose your local server:
+STEP 7 -- Install and start ngrok to expose your local server:
     Download: https://ngrok.com/download
     Run:      ngrok http 5000
     Copy the https URL shown (e.g. https://abc123.ngrok.io)
 
-STEP 8 — Set the Twilio Webhook URL:
-    → Twilio Console → Messaging → Settings → WhatsApp Sandbox Settings
-    → "When a message comes in" → paste your ngrok URL + /webhook
-    → e.g. https://abc123.ngrok.io/webhook
-    → Save
+STEP 8 -- Set the Twilio Webhook URL:
+    -> Twilio Console -> Messaging -> Settings -> WhatsApp Sandbox Settings
+    -> "When a message comes in" -> paste your ngrok URL + /webhook
+    -> e.g. https://abc123.ngrok.io/webhook
+    -> Save
 
-STEP 9 — Start this server:
+STEP 9 -- Start this server:
     python whatsapp_server.py
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-USAGE — Send these WhatsApp messages to your Twilio number:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+------------------------------------------------------------
+USAGE -- Send these WhatsApp messages to your Twilio number:
+------------------------------------------------------------
     Print C:\\docs\report.pdf in black and white 2 copies
     Print C:\\pics\\photo.jpg in color on HP LaserJet
     Print C:\report.pdf and C:\\slides.pptx bw 3 copies
@@ -67,24 +67,24 @@ from twilio.rest import Client as TwilioClient
 
 app = Flask(__name__)
 
-# ── Config from environment variables ────────────────────────────────────────
+# -- Config from environment variables ----------------------------------------
 
 TWILIO_ACCOUNT_SID   = os.environ.get("TWILIO_ACCOUNT_SID", "")
 TWILIO_AUTH_TOKEN    = os.environ.get("TWILIO_AUTH_TOKEN", "")
 TWILIO_WHATSAPP_FROM = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
 GROQ_API_KEY         = os.environ.get("GROQ_API_KEY", "")
 
-# Path to print_pdf.py — must be in the same folder
+# Path to print_pdf.py -- must be in the same folder
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
 PRINT_SCRIPT = os.path.join(SCRIPT_DIR, "print_pdf.py")
 
-# ── Groq system prompt (same logic as ai_print.py) ───────────────────────────
+# -- Groq system prompt (same logic as ai_print.py) ---------------------------
 
 SYSTEM_PROMPT = """
 You are a smart print assistant. The user will describe what they want to do
 with one or more files in plain English via WhatsApp.
 
-Return ONLY a valid JSON object — no explanation, no markdown, no code fences.
+Return ONLY a valid JSON object -- no explanation, no markdown, no code fences.
 
 JSON schema:
 {
@@ -102,23 +102,23 @@ JSON schema:
 }
 
 Command rules (by file extension):
-- LIST/SHOW printers → "printers" (no file)
-- .pdf  → "print"
-- .xlsx/.xls/.xlsm → "xlprint"
-- .pptx/.ppt/.pptm/.odp → "pptprint"
-- .docx/.doc/.odt/.rtf → "wordprint"
-- .jpg/.jpeg/.png/.bmp/.tiff/.gif/.webp → "imgprint"
+- LIST/SHOW printers -> "printers" (no file)
+- .pdf  -> "print"
+- .xlsx/.xls/.xlsm -> "xlprint"
+- .pptx/.ppt/.pptm/.odp -> "pptprint"
+- .docx/.doc/.odt/.rtf -> "wordprint"
+- .jpg/.jpeg/.png/.bmp/.tiff/.gif/.webp -> "imgprint"
 - CONVERT only (no print): toxpdf / pptpdf / wordpdf / imgpdf
-- DOWNLOAD/SAVE PDF → "download"
+- DOWNLOAD/SAVE PDF -> "download"
 
-Color: "bw"/"black and white"/"grayscale" → "bw" | "color"/"colour" → "color" | default "bw"
+Color: "bw"/"black and white"/"grayscale" -> "bw" | "color"/"colour" -> "color" | default "bw"
 Copies: extract number if mentioned, else 1
 Multi-file: create one job per file.
 
 Return only JSON. Nothing else.
 """
 
-# ── Help message ──────────────────────────────────────────────────────────────
+# -- Help message --------------------------------------------------------------
 
 HELP_MSG = """🖨 *AI Print Assistant*
 
@@ -141,7 +141,7 @@ PDF, Excel, PowerPoint, Word, Images (JPG/PNG/BMP/TIFF/WEBP)
 • Save to: "save to C:\\Downloads"
 """
 
-# ── Groq AI parser ────────────────────────────────────────────────────────────
+# -- Groq AI parser ------------------------------------------------------------
 
 def get_groq_client():
     try:
@@ -185,7 +185,7 @@ def parse_intent(user_text: str) -> dict:
         return {"clarify": "Sorry, I couldn't understand that. Could you rephrase?"}
 
 
-# ── Job runner ────────────────────────────────────────────────────────────────
+# -- Job runner ----------------------------------------------------------------
 
 def run_job(job: dict) -> tuple[bool, str]:
     """
@@ -202,11 +202,12 @@ def run_job(job: dict) -> tuple[bool, str]:
     if not command:
         return False, "❌ Could not determine command."
 
-    # printers — list available printers
+    # printers -- list available printers
     if command == "printers":
         result = subprocess.run(
             [sys.executable, PRINT_SCRIPT, "printers"],
-            capture_output=True, text=True
+            capture_output=True, text=True, encoding="utf-8",
+            env={**os.environ, "PYTHONIOENCODING": "utf-8"}
         )
         if result.returncode == 0:
             output = result.stdout.strip() or "No printers found."
@@ -242,7 +243,8 @@ def run_job(job: dict) -> tuple[bool, str]:
         else:
             return False, "❌ Please mention where to save the file (e.g. 'save to C:\\Downloads')."
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                            env={**os.environ, "PYTHONIOENCODING": "utf-8"})
 
     fname   = os.path.basename(file)
     color_l = "Color" if color == "color" else "B&W"
@@ -256,13 +258,13 @@ def run_job(job: dict) -> tuple[bool, str]:
                 f"   Copies  : {copies}"
             )
         else:
-            return True, f"✅ *Converted:* {fname} → PDF"
+            return True, f"✅ *Converted:* {fname} -> PDF"
     else:
         err = result.stderr.strip() or result.stdout.strip()
         return False, f"❌ Failed for `{fname}`:\n{err[:300]}"
 
 
-# ── Flask webhook ─────────────────────────────────────────────────────────────
+# -- Flask webhook -------------------------------------------------------------
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -302,7 +304,7 @@ def webhook():
         msg.body(reply)
         return str(resp)
 
-    # Multiple jobs — run one by one, collect results
+    # Multiple jobs -- run one by one, collect results
     results   = []
     successes = 0
     for i, job in enumerate(jobs, start=1):
@@ -326,52 +328,52 @@ def index():
     return "✅ WhatsApp Print Server is running!", 200
 
 
-# ── Startup checks ────────────────────────────────────────────────────────────
+# -- Startup checks ------------------------------------------------------------
 
 def check_config():
     ok = True
-    print("\n" + "━"*54)
-    print("  WhatsApp Print Server — startup check")
-    print("━"*54)
+    print("\n" + "-"*54)
+    print("  WhatsApp Print Server -- startup check")
+    print("-"*54)
 
     if not GROQ_API_KEY:
-        print("  ✗ GROQ_API_KEY not set")
-        print("    → set GROQ_API_KEY=your_key")
+        print("  [X] GROQ_API_KEY not set")
+        print("    -> set GROQ_API_KEY=your_key")
         ok = False
     else:
-        print("  ✓ GROQ_API_KEY found")
+        print("  [OK] GROQ_API_KEY found")
 
     if not TWILIO_ACCOUNT_SID:
-        print("  ✗ TWILIO_ACCOUNT_SID not set")
+        print("  [X] TWILIO_ACCOUNT_SID not set")
         ok = False
     else:
-        print("  ✓ TWILIO_ACCOUNT_SID found")
+        print("  [OK] TWILIO_ACCOUNT_SID found")
 
     if not TWILIO_AUTH_TOKEN:
-        print("  ✗ TWILIO_AUTH_TOKEN not set")
+        print("  [X] TWILIO_AUTH_TOKEN not set")
         ok = False
     else:
-        print("  ✓ TWILIO_AUTH_TOKEN found")
+        print("  [OK] TWILIO_AUTH_TOKEN found")
 
     if not os.path.isfile(PRINT_SCRIPT):
-        print(f"  ✗ print_pdf.py not found at: {PRINT_SCRIPT}")
+        print(f"  [X] print_pdf.py not found at: {PRINT_SCRIPT}")
         ok = False
     else:
-        print(f"  ✓ print_pdf.py found")
+        print(f"  [OK] print_pdf.py found")
 
-    print("━"*54)
+    print("-"*54)
     if ok:
-        print("  ✓ All good! Server starting on http://localhost:5000")
-        print("  ✓ Webhook URL to paste in Twilio:")
+        print("  [OK] All good! Server starting on http://localhost:5000")
+        print("  [OK] Webhook URL to paste in Twilio:")
         print("      https://<your-ngrok-url>/webhook")
     else:
-        print("  ⚠ Fix the issues above before using.")
-    print("━"*54 + "\n")
+        print("  [!] Fix the issues above before using.")
+    print("-"*54 + "\n")
 
     return ok
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# -- Main ----------------------------------------------------------------------
 
 if __name__ == "__main__":
     check_config()

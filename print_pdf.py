@@ -1,68 +1,114 @@
 """
-print_pdf.py — PDF, Excel, PowerPoint, Word & Image printing utility for Windows.
+whatsapp_server.py — WhatsApp Print Assistant via Twilio + Flask
+
+How it works:
+  WhatsApp message → Twilio → this Flask server → Groq AI → print_pdf.py → printer
+  Then replies back on WhatsApp with the result.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ONE-TIME SETUP (do this once)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 1 — Install dependencies:
+    pip install twilio flask groq
+
+STEP 2 — Get a free Twilio account:
+    https://www.twilio.com/try-twilio
+
+STEP 3 — Set up Twilio WhatsApp Sandbox:
+    → Twilio Console → Messaging → Try it out → Send a WhatsApp message
+    → Follow the instructions to join the sandbox from your WhatsApp
+
+STEP 4 — Get your Twilio credentials:
+    → Twilio Console → Account Info → copy Account SID and Auth Token
+
+STEP 5 — Get a free Groq API key:
+    https://console.groq.com
+
+STEP 6 — Set environment variables (run these in CMD before starting server):
+    set TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    set TWILIO_AUTH_TOKEN=your_auth_token_here
+    set TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+    set GROQ_API_KEY=your_groq_key_here
+
+STEP 7 — Install and start ngrok to expose your local server:
+    Download: https://ngrok.com/download
+    Run:      ngrok http 5000
+    Copy the https URL shown (e.g. https://abc123.ngrok.io)
+
+STEP 8 — Set the Twilio Webhook URL:
+    → Twilio Console → Messaging → Settings → WhatsApp Sandbox Settings
+    → "When a message comes in" → paste your ngrok URL + /webhook
+    → e.g. https://abc123.ngrok.io/webhook
+    → Save
+
+STEP 9 — Start this server:
+    python whatsapp_server.py
+
+print_pdf.py - PDF, Excel, PowerPoint, Word & Image printing utility for Windows.
+
+------------------------------------------------------------
 FEATURES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+------------------------------------------------------------
   1.  Print a PDF file to a printer
-  2.  Convert Excel  (.xlsx / .xls / .xlsm)           → PDF
-  3.  Convert PowerPoint (.pptx / .ppt / .pptm / .odp) → PDF
-  4.  Convert Word   (.docx / .doc / .odt / .rtf)     → PDF
-  5.  Convert Image  (JPG / PNG / BMP / TIFF / WEBP)  → PDF
+  2.  Convert Excel  (.xlsx / .xls / .xlsm)           -> PDF
+  3.  Convert PowerPoint (.pptx / .ppt / .pptm / .odp) -> PDF
+  4.  Convert Word   (.docx / .doc / .odt / .rtf)     -> PDF
+  5.  Convert Image  (JPG / PNG / BMP / TIFF / WEBP)  -> PDF
   6.  Download / save a copy of any PDF to a folder
-  7.  Excel     → PDF → Print  (one command)
-  8.  PowerPoint → PDF → Print (one command)
-  9.  Word      → PDF → Print  (one command)
-  10. Image     → PDF → Print  (one command)
+  7.  Excel     -> PDF -> Print  (one command)
+  8.  PowerPoint -> PDF -> Print (one command)
+  9.  Word      -> PDF -> Print  (one command)
+  10. Image     -> PDF -> Print  (one command)
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+------------------------------------------------------------
 COLOR vs BLACK & WHITE  (--color flag)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+------------------------------------------------------------
   All print commands accept an optional --color flag:
 
-    --color bw     → Black & white print (DEFAULT if flag is omitted).
+    --color bw     -> Black & white print (DEFAULT if flag is omitted).
                      The PDF is converted to grayscale by Ghostscript
                      before printing, so NO color ink is used regardless
                      of what the printer driver is set to.
 
-    --color color  → Full color print. The PDF is sent as-is.
+    --color color  -> Full color print. The PDF is sent as-is.
 
   If Ghostscript is not installed and --color bw is used, the script
   prints a warning and continues WITHOUT grayscale conversion.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+------------------------------------------------------------
 NUMBER OF COPIES  (--copies / -n flag)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+------------------------------------------------------------
   All print commands accept an optional --copies (or -n) flag:
 
-    --copies 1     → Print 1 copy (DEFAULT if flag is omitted).
-    --copies 5     → Print 5 copies of the document.
+    --copies 1     -> Print 1 copy (DEFAULT if flag is omitted).
+    --copies 5     -> Print 5 copies of the document.
 
   Implemented via SumatraPDF's -print-settings "<n>x" option.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+------------------------------------------------------------
 REQUIREMENTS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+------------------------------------------------------------
   Software to install:
-    • SumatraPDF  (for printing)
+    * SumatraPDF  (for printing)
         https://www.sumatrapdfreader.org/download-free-pdf-viewer
-        → Place SumatraPDF.exe next to this script OR install normally.
+        -> Place SumatraPDF.exe next to this script OR install normally.
 
-    • LibreOffice  (for Excel / PowerPoint / Word → PDF conversion)
+    * LibreOffice  (for Excel / PowerPoint / Word -> PDF conversion)
         https://www.libreoffice.org/download/download/
 
-    • Ghostscript  (for black & white / grayscale conversion)
+    * Ghostscript  (for black & white / grayscale conversion)
         https://www.ghostscript.com/releases/gsdnld.html
-        → Install the 64-bit version (gswin64c).
-        → Only needed when printing in black & white (the default).
+        -> Install the 64-bit version (gswin64c).
+        -> Only needed when printing in black & white (the default).
 
   Python packages:
-    pip install pillow    # for Image → PDF
+    pip install pillow    # for Image -> PDF
     pip install pywin32   # for listing printers
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+------------------------------------------------------------
 USAGE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+------------------------------------------------------------
   List printers:
     python print_pdf.py printers
 
@@ -102,6 +148,12 @@ import platform
 import argparse
 import tempfile
 
+# Force UTF-8 output on Windows so special characters ([OK] [X] ->) don't crash
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if sys.stderr.encoding and sys.stderr.encoding.lower() != "utf-8":
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 
 IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".gif", ".webp"]
 EXCEL_EXTS = [".xlsx", ".xls", ".xlsm"]
@@ -109,9 +161,9 @@ PPT_EXTS   = [".pptx", ".ppt", ".pptm", ".odp"]
 WORD_EXTS  = [".docx", ".doc", ".docm", ".odt", ".rtf"]
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Helpers
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 def _require_windows():
     if platform.system() != "Windows":
@@ -143,8 +195,8 @@ def _find_sumatra(hint: str = None) -> str:
         return result.stdout.strip().splitlines()[0]
     raise FileNotFoundError(
         "SumatraPDF.exe not found.\n"
-        "  • Download: https://www.sumatrapdfreader.org/download-free-pdf-viewer\n"
-        "  • Place SumatraPDF.exe next to this script, OR use --sumatra <path>"
+        "  * Download: https://www.sumatrapdfreader.org/download-free-pdf-viewer\n"
+        "  * Place SumatraPDF.exe next to this script, OR use --sumatra <path>"
     )
 
 
@@ -161,8 +213,8 @@ def _find_libreoffice() -> str:
         return result.stdout.strip().splitlines()[0]
     raise FileNotFoundError(
         "LibreOffice (soffice.exe) not found.\n"
-        "  • Download: https://www.libreoffice.org/download/download/\n"
-        "  • Install it, then re-run this script."
+        "  * Download: https://www.libreoffice.org/download/download/\n"
+        "  * Install it, then re-run this script."
     )
 
 
@@ -177,7 +229,7 @@ def _apply_grayscale_to_pdf(pdf_path: str) -> str:
       - This guarantees NO color ink is used when the file is sent to the printer,
         regardless of the printer driver's own color settings.
 
-    Falls back gracefully if Ghostscript is not installed — prints a warning
+    Falls back gracefully if Ghostscript is not installed - prints a warning
     and leaves the PDF untouched.
     Returns the (same) pdf_path.
     """
@@ -203,7 +255,7 @@ def _apply_grayscale_to_pdf(pdf_path: str) -> str:
             gs = res.stdout.strip().splitlines()[0]
 
     if not gs:
-        print("  ⚠ Ghostscript not found — skipping grayscale conversion.")
+        print("  [!] Ghostscript not found - skipping grayscale conversion.")
         print("    Download: https://www.ghostscript.com/releases/gsdnld.html")
         return pdf_path
 
@@ -222,12 +274,12 @@ def _apply_grayscale_to_pdf(pdf_path: str) -> str:
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
-            print(f"  ⚠ Ghostscript grayscale failed: {result.stderr.strip()}")
+            print(f"  [!] Ghostscript grayscale failed: {result.stderr.strip()}")
             return pdf_path
         shutil.move(tmp_out, pdf_path)
-        print("  ✓ Converted to grayscale (black & white).")
+        print("  [OK] Converted to grayscale (black & white).")
     except Exception as e:
-        print(f"  ⚠ Grayscale conversion error: {e}")
+        print(f"  [!] Grayscale conversion error: {e}")
     finally:
         if os.path.isfile(tmp_out):
             os.remove(tmp_out)
@@ -242,9 +294,9 @@ def get_available_printers():
     )]
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Feature 1 — Print PDF
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Feature 1 - Print PDF
+# -----------------------------------------------------------------------------
 
 def print_pdf(pdf_path: str, printer_name: str = None, sumatra_hint: str = None, color: str = "bw", copies: int = 1):
     """Send a PDF to a printer using SumatraPDF. color='bw' or 'color'. copies=number of copies to print."""
@@ -267,10 +319,10 @@ def print_pdf(pdf_path: str, printer_name: str = None, sumatra_hint: str = None,
 
     # Send the job once per requested copy.
     # SumatraPDF does not have a native -copies flag, so we submit the job
-    # multiple times — each submission is one complete copy of the document.
+    # multiple times - each submission is one complete copy of the document.
     for i in range(copies):
         if copies > 1:
-            print(f"  Printing copy {i + 1} of {copies} …")
+            print(f"  Printing copy {i + 1} of {copies} ...")
         if printer_name:
             cmd = [sumatra, "-print-to", printer_name, "-silent", pdf_path]
         else:
@@ -283,12 +335,12 @@ def print_pdf(pdf_path: str, printer_name: str = None, sumatra_hint: str = None,
                 f"  {result.stderr.strip() or result.stdout.strip()}"
             )
 
-    print(f"  ✓ {copies} copy/copies sent to printer successfully.")
+    print(f"  [OK] {copies} copy/copies sent to printer successfully.")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Feature 2 — Convert Excel → PDF
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Feature 2 - Convert Excel -> PDF
+# -----------------------------------------------------------------------------
 
 def excel_to_pdf(excel_path: str, out_dir: str = None) -> str:
     """Convert an Excel file to PDF using LibreOffice."""
@@ -332,14 +384,14 @@ def excel_to_pdf(excel_path: str, out_dir: str = None) -> str:
         final_pdf = os.path.join(out_dir, orig_base + ".pdf")
         shutil.move(tmp_pdf, final_pdf)
 
-    print(f"  ✓ PDF created : {final_pdf}")
+    print(f"  [OK] PDF created : {final_pdf}")
     return final_pdf
 
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Feature 3 — Convert PowerPoint → PDF
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Feature 3 - Convert PowerPoint -> PDF
+# -----------------------------------------------------------------------------
 
 def ppt_to_pdf(ppt_path: str, out_dir: str = None) -> str:
     """
@@ -391,13 +443,13 @@ def ppt_to_pdf(ppt_path: str, out_dir: str = None) -> str:
     return final_pdf
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Feature 4 — Convert Image → PDF
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Feature 4 - Convert Image -> PDF
+# -----------------------------------------------------------------------------
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Feature 4 — Convert Image → PDF
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Feature 4 - Convert Image -> PDF
+# -----------------------------------------------------------------------------
 
 def image_to_pdf(image_path: str, out_dir: str = None) -> str:
     """
@@ -426,7 +478,7 @@ def image_to_pdf(image_path: str, out_dir: str = None) -> str:
     print(f"  Image      : {abs_img}")
     print(f"  Output dir : {out_dir}")
 
-    # A4 at 150 DPI → 1240 x 1754 px
+    # A4 at 150 DPI -> 1240 x 1754 px
     A4_W, A4_H = 1240, 1754
 
     img = Image.open(abs_img)
@@ -453,13 +505,13 @@ def image_to_pdf(image_path: str, out_dir: str = None) -> str:
     final_pdf = os.path.join(out_dir, orig_base + ".pdf")
     canvas.save(final_pdf, "PDF", resolution=150)
 
-    print(f"  ✓ PDF created : {final_pdf}")
+    print(f"  [OK] PDF created : {final_pdf}")
     return final_pdf
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Feature 5 — Download / copy a PDF
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Feature 5 - Download / copy a PDF
+# -----------------------------------------------------------------------------
 
 def download_pdf(pdf_path: str, out_dir: str) -> str:
     """Copy a PDF to out_dir. Returns the destination path."""
@@ -471,40 +523,40 @@ def download_pdf(pdf_path: str, out_dir: str) -> str:
 
     print(f"  Source   : {os.path.abspath(pdf_path)}")
     print(f"  Saved to : {dest}")
-    print("  ✓ PDF downloaded (copied) successfully.")
+    print("  [OK] PDF downloaded (copied) successfully.")
     return dest
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Feature 6 — Excel → PDF → Print
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Feature 6 - Excel -> PDF -> Print
+# -----------------------------------------------------------------------------
 
 def excel_print(excel_path: str, printer_name: str = None,
                 out_dir: str = None, sumatra_hint: str = None, color: str = "bw", copies: int = 1):
     """Convert Excel to PDF, then print it."""
-    print("[Step 1/2] Converting Excel to PDF …")
+    print("[Step 1/2] Converting Excel to PDF ...")
     pdf_path = excel_to_pdf(excel_path, out_dir)
-    print("[Step 2/2] Sending PDF to printer …")
+    print("[Step 2/2] Sending PDF to printer ...")
     print_pdf(pdf_path, printer_name, sumatra_hint, color, copies)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Feature 7 — Image → PDF → Print
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Feature 7 - Image -> PDF -> Print
+# -----------------------------------------------------------------------------
 
 def image_print(image_path: str, printer_name: str = None,
                 out_dir: str = None, sumatra_hint: str = None, color: str = "bw", copies: int = 1):
     """Convert image to PDF, then print it."""
-    print("[Step 1/2] Converting image to PDF …")
+    print("[Step 1/2] Converting image to PDF ...")
     pdf_path = image_to_pdf(image_path, out_dir)
-    print("[Step 2/2] Sending PDF to printer …")
+    print("[Step 2/2] Sending PDF to printer ...")
     print_pdf(pdf_path, printer_name, sumatra_hint, color, copies)
 
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Feature 8 — PowerPoint → PDF → Print
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Feature 8 - PowerPoint -> PDF -> Print
+# -----------------------------------------------------------------------------
 
 def ppt_print(ppt_path: str, printer_name: str = None,
               out_dir: str = None, sumatra_hint: str = None):
@@ -515,9 +567,9 @@ def ppt_print(ppt_path: str, printer_name: str = None,
     print_pdf(pdf_path, printer_name, sumatra_hint)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Feature 9 — Convert Word → PDF
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Feature 9 - Convert Word -> PDF
+# -----------------------------------------------------------------------------
 
 def word_to_pdf(word_path: str, out_dir: str = None) -> str:
     """
@@ -564,25 +616,25 @@ def word_to_pdf(word_path: str, out_dir: str = None) -> str:
         final_pdf = os.path.join(out_dir, orig_base + ".pdf")
         shutil.move(tmp_pdf, final_pdf)
 
-    print(f"  ✓ PDF created : {final_pdf}")
+    print(f"  [OK] PDF created : {final_pdf}")
     return final_pdf
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Feature 10 — Word → PDF → Print
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Feature 10 - Word -> PDF -> Print
+# -----------------------------------------------------------------------------
 
 def word_print(word_path: str, printer_name: str = None,
                out_dir: str = None, sumatra_hint: str = None, color: str = "bw", copies: int = 1):
     """Convert Word document to PDF, then print it."""
-    print("[Step 1/2] Converting Word to PDF …")
+    print("[Step 1/2] Converting Word to PDF ...")
     pdf_path = word_to_pdf(word_path, out_dir)
-    print("[Step 2/2] Sending PDF to printer …")
+    print("[Step 2/2] Sending PDF to printer ...")
     print_pdf(pdf_path, printer_name, sumatra_hint, color, copies)
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # CLI
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 def main():
     parser = argparse.ArgumentParser(
@@ -607,22 +659,22 @@ def main():
                         help='Color mode: "bw" = black & white (default, uses Ghostscript to strip color), '
                              '"color" = full color. If --color is omitted, bw is used.')
 
-    # toxpdf  (Excel → PDF)
+    # toxpdf  (Excel -> PDF)
     p_toxpdf = sub.add_parser("toxpdf", help="Convert Excel file to PDF.")
     p_toxpdf.add_argument("excel", help="Path to the .xlsx / .xls file.")
     p_toxpdf.add_argument("--out", "-o", help="Output folder (default: same folder as Excel).")
 
-    # pptpdf  (PowerPoint → PDF)
+    # pptpdf  (PowerPoint -> PDF)
     p_pptpdf = sub.add_parser("pptpdf", help="Convert PowerPoint file to PDF.")
     p_pptpdf.add_argument("ppt", help="Path to the .pptx / .ppt file.")
     p_pptpdf.add_argument("--out", "-o", help="Output folder (default: same folder as PPT).")
 
-    # wordpdf (Word → PDF)
+    # wordpdf (Word -> PDF)
     p_wordpdf = sub.add_parser("wordpdf", help="Convert Word file to PDF.")
     p_wordpdf.add_argument("word", help="Path to the .docx / .doc file.")
     p_wordpdf.add_argument("--out", "-o", help="Output folder (default: same folder as Word file).")
 
-    # imgpdf  (Image → PDF)
+    # imgpdf  (Image -> PDF)
     p_imgpdf = sub.add_parser("imgpdf", help="Convert image file to PDF.")
     p_imgpdf.add_argument("image", help="Path to the image file (JPG/PNG/BMP/TIFF/GIF/WEBP).")
     p_imgpdf.add_argument("--out", "-o", help="Output folder (default: same folder as image).")
@@ -632,7 +684,7 @@ def main():
     p_dl.add_argument("pdf", help="Path to the PDF file.")
     p_dl.add_argument("--out", "-o", required=True, help="Destination folder.")
 
-    # xlprint (Excel → PDF → print)
+    # xlprint (Excel -> PDF -> print)
     p_xlp = sub.add_parser("xlprint", help="Convert Excel to PDF and print it.")
     p_xlp.add_argument("excel", help="Path to the .xlsx / .xls file.")
     p_xlp.add_argument("--printer", "-p", help="Printer name (default: system default).")
@@ -644,7 +696,7 @@ def main():
                         help='Color mode: "bw" = black & white (default, uses Ghostscript to strip color), '
                              '"color" = full color. If --color is omitted, bw is used.')
 
-    # pptprint (PowerPoint → PDF → print)
+    # pptprint (PowerPoint -> PDF -> print)
     p_pptp = sub.add_parser("pptprint", help="Convert PowerPoint to PDF and print it.")
     p_pptp.add_argument("ppt", help="Path to the .pptx / .ppt file.")
     p_pptp.add_argument("--printer", "-p", help="Printer name (default: system default).")
@@ -656,7 +708,7 @@ def main():
                         help='Color mode: "bw" = black & white (default, uses Ghostscript to strip color), '
                              '"color" = full color. If --color is omitted, bw is used.')
 
-    # wordprint (Word → PDF → print)
+    # wordprint (Word -> PDF -> print)
     p_wordp = sub.add_parser("wordprint", help="Convert Word file to PDF and print it.")
     p_wordp.add_argument("word", help="Path to the .docx / .doc file.")
     p_wordp.add_argument("--printer", "-p", help="Printer name (default: system default).")
@@ -668,7 +720,7 @@ def main():
                         help='Color mode: "bw" = black & white (default, uses Ghostscript to strip color), '
                              '"color" = full color. If --color is omitted, bw is used.')
 
-    # imgprint (Image → PDF → print)
+    # imgprint (Image -> PDF -> print)
     p_imp = sub.add_parser("imgprint", help="Convert image to PDF and print it.")
     p_imp.add_argument("image", help="Path to the image file (JPG/PNG/BMP/TIFF/GIF/WEBP).")
     p_imp.add_argument("--printer", "-p", help="Printer name (default: system default).")
@@ -692,7 +744,7 @@ def main():
             if printers:
                 print("Available printers:")
                 for p in printers:
-                    print(f"  • {p}")
+                    print(f"  * {p}")
             else:
                 print("No printers found.")
 
