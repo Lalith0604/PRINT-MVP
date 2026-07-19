@@ -1,786 +1,429 @@
 """
-whatsapp_server.py — WhatsApp Print Assistant via Twilio + Flask
+ai_print.py — AI-powered print assistant using Groq.
 
-How it works:
-  WhatsApp message → Twilio → this Flask server → Groq AI → print_pdf.py → printer
-  Then replies back on WhatsApp with the result.
+Just describe what you want to print in plain English.
+The AI understands your intent and runs the right print command.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ONE-TIME SETUP (do this once)
+SETUP
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1. Get a free Groq API key at: https://console.groq.com
+  2. Set your API key (one-time):
+       Windows CMD:   set GROQ_API_KEY=your_key_here
+       PowerShell:    $env:GROQ_API_KEY="your_key_here"
+     Or paste it when prompted on first run.
 
-STEP 1 — Install dependencies:
-    pip install twilio flask groq
+  3. Install dependency:
+       pip install groq
+# Get a free API key at https://console.groq.com
+# Then set it (CMD):
+set GROQ_API_KEY=your_key_here
 
-STEP 2 — Get a free Twilio account:
-    https://www.twilio.com/try-twilio
 
-STEP 3 — Set up Twilio WhatsApp Sandbox:
-    → Twilio Console → Messaging → Try it out → Send a WhatsApp message
-    → Follow the instructions to join the sandbox from your WhatsApp
 
-STEP 4 — Get your Twilio credentials:
-    → Twilio Console → Account Info → copy Account SID and Auth Token
+You: Print C:\docs\report.pdf, C:\pics\photo.jpg and C:\slides\deck.pptx in black and white 2 copies
 
-STEP 5 — Get a free Groq API key:
-    https://console.groq.com
+  Here's what I understood (3 files):
 
-STEP 6 — Set environment variables (run these in CMD before starting server):
-    set TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-    set TWILIO_AUTH_TOKEN=your_auth_token_here
-    set TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
-    set GROQ_API_KEY=your_groq_key_here
+  ── Job 1 of 3 ──────────────────────
+  Action   : Print PDF
+  File     : C:\docs\report.pdf
+  Printer  : system default
+  Color    : Black & White
+  Copies   : 2
+  ── Job 2 of 3 ──────────────────────
+  Action   : Convert Image → PDF → Print
+  File     : C:\pics\photo.jpg
+  ...
+  ── Job 3 of 3 ──────────────────────
+  Action   : Convert PowerPoint → PDF → Print
+  File     : C:\slides\deck.pptx
+  ...
 
-STEP 7 — Install and start ngrok to expose your local server:
-    Download: https://ngrok.com/download
-    Run:      ngrok http 5000
-    Copy the https URL shown (e.g. https://abc123.ngrok.io)
+  Proceed? [Y/n]: y
 
-STEP 8 — Set the Twilio Webhook URL:
-    → Twilio Console → Messaging → Settings → WhatsApp Sandbox Settings
-    → "When a message comes in" → paste your ngrok URL + /webhook
-    → e.g. https://abc123.ngrok.io/webhook
-    → Save
+  [1/3] Running: ...   ✓
+  [2/3] Running: ...   ✓
+  [3/3] Running: ...   ✓
 
-STEP 9 — Start this server:
-    python whatsapp_server.py
-
-print_pdf.py - PDF, Excel, PowerPoint, Word & Image printing utility for Windows.
-
-------------------------------------------------------------
-FEATURES
-------------------------------------------------------------
-  1.  Print a PDF file to a printer
-  2.  Convert Excel  (.xlsx / .xls / .xlsm)           -> PDF
-  3.  Convert PowerPoint (.pptx / .ppt / .pptm / .odp) -> PDF
-  4.  Convert Word   (.docx / .doc / .odt / .rtf)     -> PDF
-  5.  Convert Image  (JPG / PNG / BMP / TIFF / WEBP)  -> PDF
-  6.  Download / save a copy of any PDF to a folder
-  7.  Excel     -> PDF -> Print  (one command)
-  8.  PowerPoint -> PDF -> Print (one command)
-  9.  Word      -> PDF -> Print  (one command)
-  10. Image     -> PDF -> Print  (one command)
-
-------------------------------------------------------------
-COLOR vs BLACK & WHITE  (--color flag)
-------------------------------------------------------------
-  All print commands accept an optional --color flag:
-
-    --color bw     -> Black & white print (DEFAULT if flag is omitted).
-                     The PDF is converted to grayscale by Ghostscript
-                     before printing, so NO color ink is used regardless
-                     of what the printer driver is set to.
-
-    --color color  -> Full color print. The PDF is sent as-is.
-
-  If Ghostscript is not installed and --color bw is used, the script
-  prints a warning and continues WITHOUT grayscale conversion.
-
-------------------------------------------------------------
-NUMBER OF COPIES  (--copies / -n flag)
-------------------------------------------------------------
-  All print commands accept an optional --copies (or -n) flag:
-
-    --copies 1     -> Print 1 copy (DEFAULT if flag is omitted).
-    --copies 5     -> Print 5 copies of the document.
-
-  Implemented via SumatraPDF's -print-settings "<n>x" option.
-
-------------------------------------------------------------
-REQUIREMENTS
-------------------------------------------------------------
-  Software to install:
-    * SumatraPDF  (for printing)
-        https://www.sumatrapdfreader.org/download-free-pdf-viewer
-        -> Place SumatraPDF.exe next to this script OR install normally.
-
-    * LibreOffice  (for Excel / PowerPoint / Word -> PDF conversion)
-        https://www.libreoffice.org/download/download/
-
-    * Ghostscript  (for black & white / grayscale conversion)
-        https://www.ghostscript.com/releases/gsdnld.html
-        -> Install the 64-bit version (gswin64c).
-        -> Only needed when printing in black & white (the default).
-
-  Python packages:
-    pip install pillow    # for Image -> PDF
-    pip install pywin32   # for listing printers
-
-------------------------------------------------------------
+  ━━━ Done: 3/3 jobs completed successfully. ━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 USAGE
-------------------------------------------------------------
-  List printers:
-    python print_pdf.py printers
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  python ai_print.py
 
-  Print a PDF:
-    python print_pdf.py print "report.pdf"
-    python print_pdf.py print "report.pdf" --printer "HP LaserJet"
-    python print_pdf.py print "report.pdf" --color color      # full color
-    python print_pdf.py print "report.pdf" --color bw         # black & white (default)
-    python print_pdf.py print "report.pdf" --copies 3         # print 3 copies
+  Then just type naturally, for example:
+    > Print C:/reports/sales.pdf in black and white, 3 copies
+    > Convert my file C:/docs/report.docx to PDF and save to C:/Downloads
+    > Print C:/pics/photo.png in color on my HP printer
+    > Print C:/slides/deck.pptx 2 copies black and white to HP LaserJet
 
-  Convert to PDF only (no printing):
-    python print_pdf.py toxpdf    "data.xlsx"    --out "C:/exports"
-    python print_pdf.py pptpdf    "slides.pptx"  --out "C:/exports"
-    python print_pdf.py wordpdf   "report.docx"  --out "C:/exports"
-    python print_pdf.py imgpdf    "photo.jpg"    --out "C:/exports"
-
-  Download / save a PDF copy:
-    python print_pdf.py download "report.pdf" --out "C:/Users/lalit/Downloads"
-
-  Convert + Print in one step:
-    python print_pdf.py xlprint   "data.xlsx"   --out "C:/Users/lalit/Downloads"
-    python print_pdf.py pptprint  "slides.pptx" --out "C:/Users/lalit/Downloads"
-    python print_pdf.py wordprint "report.docx" --out "C:/Users/lalit/Downloads"
-    python print_pdf.py imgprint  "photo.jpg"   --out "C:/Users/lalit/Downloads"
-
-    # With color, copies, and printer options:
-    python print_pdf.py xlprint "data.xlsx" --printer "HP LaserJet" --color color --copies 2 --out "C:/exports"
-    python print_pdf.py print   "report.pdf" --copies 3               # print 3 copies
-    python print_pdf.py xlprint "data.xlsx"  --copies 5 --color color  # 5 color copies
+  Type 'help' to see example prompts.
+  Type 'quit' or 'exit' to stop.
 """
 
-import sys
 import os
-import shutil
+import sys
+import json
 import subprocess
-import platform
-import argparse
-import tempfile
 
-# Force UTF-8 output on Windows so special characters ([OK] [X] ->) don't crash
-if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-if sys.stderr.encoding and sys.stderr.encoding.lower() != "utf-8":
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+# ── Groq client setup ─────────────────────────────────────────────────────────
 
-
-IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".gif", ".webp"]
-EXCEL_EXTS = [".xlsx", ".xls", ".xlsm"]
-PPT_EXTS   = [".pptx", ".ppt", ".pptm", ".odp"]
-WORD_EXTS  = [".docx", ".doc", ".docm", ".odt", ".rtf"]
-
-
-# -----------------------------------------------------------------------------
-# Helpers
-# -----------------------------------------------------------------------------
-
-def _require_windows():
-    if platform.system() != "Windows":
-        raise OSError("This script currently supports Windows only.")
-
-
-def _check_file(path: str, exts=None):
-    if not os.path.isfile(path):
-        raise FileNotFoundError(f"File not found: {path}")
-    if exts and not any(path.lower().endswith(e) for e in exts):
-        raise ValueError(f"Expected file with extension {exts}, got: {path}")
-
-
-def _find_sumatra(hint: str = None) -> str:
-    candidates = []
-    if hint:
-        candidates.append(hint)
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    candidates.append(os.path.join(script_dir, "SumatraPDF.exe"))
-    candidates += [
-        r"C:\Program Files\SumatraPDF\SumatraPDF.exe",
-        r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe",
-    ]
-    for p in candidates:
-        if os.path.isfile(p):
-            return p
-    result = subprocess.run(["where", "SumatraPDF"], capture_output=True, text=True)
-    if result.returncode == 0:
-        return result.stdout.strip().splitlines()[0]
-    raise FileNotFoundError(
-        "SumatraPDF.exe not found.\n"
-        "  * Download: https://www.sumatrapdfreader.org/download-free-pdf-viewer\n"
-        "  * Place SumatraPDF.exe next to this script, OR use --sumatra <path>"
-    )
-
-
-def _find_libreoffice() -> str:
-    candidates = [
-        r"C:\Program Files\LibreOffice\program\soffice.exe",
-        r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
-    ]
-    for p in candidates:
-        if os.path.isfile(p):
-            return p
-    result = subprocess.run(["where", "soffice"], capture_output=True, text=True)
-    if result.returncode == 0:
-        return result.stdout.strip().splitlines()[0]
-    raise FileNotFoundError(
-        "LibreOffice (soffice.exe) not found.\n"
-        "  * Download: https://www.libreoffice.org/download/download/\n"
-        "  * Install it, then re-run this script."
-    )
-
-
-
-def _apply_grayscale_to_pdf(pdf_path: str) -> str:
-    """
-    Convert a PDF to grayscale (black & white) in-place using Ghostscript.
-
-    How it works:
-      - Ghostscript re-renders every page of the PDF using a gray color model.
-      - The result overwrites the original file (via a temp file).
-      - This guarantees NO color ink is used when the file is sent to the printer,
-        regardless of the printer driver's own color settings.
-
-    Falls back gracefully if Ghostscript is not installed - prints a warning
-    and leaves the PDF untouched.
-    Returns the (same) pdf_path.
-    """
-    gs_candidates = [
-        r"C:\Program Files\gs\gs10.04.0\bin\gswin64c.exe",
-        r"C:\Program Files\gs\gs10.03.1\bin\gswin64c.exe",
-        r"C:\Program Files\gs\gs10.02.1\bin\gswin64c.exe",
-        r"C:\Program Files (x86)\gs\gs10.04.0\bin\gswin32c.exe",
-        r"C:\Program Files (x86)\gs\gs10.03.1\bin\gswin32c.exe",
-    ]
-    gs = None
-    for p in gs_candidates:
-        if os.path.isfile(p):
-            gs = p
-            break
-    if not gs:
-        res = subprocess.run(["where", "gswin64c"], capture_output=True, text=True)
-        if res.returncode == 0:
-            gs = res.stdout.strip().splitlines()[0]
-    if not gs:
-        res = subprocess.run(["where", "gswin32c"], capture_output=True, text=True)
-        if res.returncode == 0:
-            gs = res.stdout.strip().splitlines()[0]
-
-    if not gs:
-        print("  [!] Ghostscript not found - skipping grayscale conversion.")
-        print("    Download: https://www.ghostscript.com/releases/gsdnld.html")
-        return pdf_path
-
-    import tempfile as _tmp
-    with _tmp.NamedTemporaryFile(suffix=".pdf", delete=False) as tf:
-        tmp_out = tf.name
-
+def get_groq_client():
     try:
-        cmd = [
-            gs, "-q", "-dBATCH", "-dNOPAUSE", "-dSAFER",
-            "-sDEVICE=pdfwrite",
-            "-sColorConversionStrategy=Gray",
-            "-dProcessColorModel=/DeviceGray",
-            f"-sOutputFile={tmp_out}",
-            pdf_path,
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            print(f"  [!] Ghostscript grayscale failed: {result.stderr.strip()}")
-            return pdf_path
-        shutil.move(tmp_out, pdf_path)
-        print("  [OK] Converted to grayscale (black & white).")
-    except Exception as e:
-        print(f"  [!] Grayscale conversion error: {e}")
-    finally:
-        if os.path.isfile(tmp_out):
-            os.remove(tmp_out)
-
-    return pdf_path
-
-
-def get_available_printers():
-    import win32print
-    return [p[2] for p in win32print.EnumPrinters(
-        win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS
-    )]
-
-
-# -----------------------------------------------------------------------------
-# Feature 1 - Print PDF
-# -----------------------------------------------------------------------------
-
-def print_pdf(pdf_path: str, printer_name: str = None, sumatra_hint: str = None, color: str = "bw", copies: int = 1):
-    """Send a PDF to a printer using SumatraPDF. color='bw' or 'color'. copies=number of copies to print."""
-    _require_windows()
-    _check_file(pdf_path, [".pdf"])
-
-    sumatra = _find_sumatra(sumatra_hint)
-
-    print(f"  PDF      : {os.path.abspath(pdf_path)}")
-    print(f"  Printer  : {printer_name or '(system default)'}")
-    print(f"  Color    : {'Color' if color == 'color' else 'Black & White (default)'}")
-    print(f"  Copies   : {copies}")
-    print(f"  Sumatra  : {sumatra}")
-
-    # --color bw  (default): strip all color from the PDF before printing.
-    # --color color         : send the PDF as-is for full-color printing.
-    # If Ghostscript is missing, a warning is shown and we continue without grayscale.
-    if color != "color":
-        _apply_grayscale_to_pdf(pdf_path)
-
-    # Send the job once per requested copy.
-    # SumatraPDF does not have a native -copies flag, so we submit the job
-    # multiple times - each submission is one complete copy of the document.
-    for i in range(copies):
-        if copies > 1:
-            print(f"  Printing copy {i + 1} of {copies} ...")
-        if printer_name:
-            cmd = [sumatra, "-print-to", printer_name, "-silent", pdf_path]
-        else:
-            cmd = [sumatra, "-print-to-default", "-silent", pdf_path]
-
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise RuntimeError(
-                f"SumatraPDF failed on copy {i + 1} (exit {result.returncode}):\n"
-                f"  {result.stderr.strip() or result.stdout.strip()}"
-            )
-
-    print(f"  [OK] {copies} copy/copies sent to printer successfully.")
-
-
-# -----------------------------------------------------------------------------
-# Feature 2 - Convert Excel -> PDF
-# -----------------------------------------------------------------------------
-
-def excel_to_pdf(excel_path: str, out_dir: str = None) -> str:
-    """Convert an Excel file to PDF using LibreOffice."""
-    _require_windows()
-    _check_file(excel_path, EXCEL_EXTS)
-
-    soffice = _find_libreoffice()
-    abs_excel = os.path.abspath(excel_path)
-    ext = os.path.splitext(abs_excel)[1]
-    orig_base = os.path.splitext(os.path.basename(abs_excel))[0]
-
-    if out_dir:
-        os.makedirs(out_dir, exist_ok=True)
-    else:
-        out_dir = os.path.dirname(abs_excel)
-
-    print(f"  Excel      : {abs_excel}")
-    print(f"  Output dir : {out_dir}")
-    print(f"  LibreOffice: {soffice}")
-
-    with tempfile.TemporaryDirectory() as tmp:
-        safe_copy = os.path.join(tmp, "input" + ext)
-        shutil.copy2(abs_excel, safe_copy)
-
-        cmd = [soffice, "--headless", "--convert-to", "pdf", "--outdir", tmp, safe_copy]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-
-        if result.returncode != 0:
-            raise RuntimeError(
-                f"LibreOffice conversion failed (exit {result.returncode}):\n"
-                f"  {result.stderr.strip() or result.stdout.strip()}"
-            )
-
-        tmp_pdf = os.path.join(tmp, "input.pdf")
-        if not os.path.isfile(tmp_pdf):
-            raise RuntimeError(
-                f"Conversion succeeded but PDF not found.\n"
-                f"LibreOffice output: {result.stdout.strip()}"
-            )
-
-        final_pdf = os.path.join(out_dir, orig_base + ".pdf")
-        shutil.move(tmp_pdf, final_pdf)
-
-    print(f"  [OK] PDF created : {final_pdf}")
-    return final_pdf
-
-
-
-# -----------------------------------------------------------------------------
-# Feature 3 - Convert PowerPoint -> PDF
-# -----------------------------------------------------------------------------
-
-def ppt_to_pdf(ppt_path: str, out_dir: str = None) -> str:
-    """
-    Convert a PowerPoint file (.pptx/.ppt/.pptm/.odp) to PDF using LibreOffice.
-    Each slide becomes one page in the PDF.
-    Returns the path of the generated PDF.
-    """
-    _require_windows()
-    _check_file(ppt_path, PPT_EXTS)
-
-    soffice = _find_libreoffice()
-    abs_ppt = os.path.abspath(ppt_path)
-    ext = os.path.splitext(abs_ppt)[1]
-    orig_base = os.path.splitext(os.path.basename(abs_ppt))[0]
-
-    if out_dir:
-        os.makedirs(out_dir, exist_ok=True)
-    else:
-        out_dir = os.path.dirname(abs_ppt)
-
-    print(f"  PowerPoint : {abs_ppt}")
-    print(f"  Output dir : {out_dir}")
-    print(f"  LibreOffice: {soffice}")
-
-    with tempfile.TemporaryDirectory() as tmp:
-        safe_copy = os.path.join(tmp, "input" + ext)
-        shutil.copy2(abs_ppt, safe_copy)
-
-        cmd = [soffice, "--headless", "--convert-to", "pdf", "--outdir", tmp, safe_copy]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-
-        if result.returncode != 0:
-            raise RuntimeError(
-                f"LibreOffice conversion failed (exit {result.returncode}):\n"
-                f"  {result.stderr.strip() or result.stdout.strip()}"
-            )
-
-        tmp_pdf = os.path.join(tmp, "input.pdf")
-        if not os.path.isfile(tmp_pdf):
-            raise RuntimeError(
-                f"Conversion succeeded but PDF not found.\n"
-                f"LibreOffice output: {result.stdout.strip()}"
-            )
-
-        final_pdf = os.path.join(out_dir, orig_base + ".pdf")
-        shutil.move(tmp_pdf, final_pdf)
-
-    print(f"  \u2713 PDF created : {final_pdf}")
-    return final_pdf
-
-
-# -----------------------------------------------------------------------------
-# Feature 4 - Convert Image -> PDF
-# -----------------------------------------------------------------------------
-
-# -----------------------------------------------------------------------------
-# Feature 4 - Convert Image -> PDF
-# -----------------------------------------------------------------------------
-
-def image_to_pdf(image_path: str, out_dir: str = None) -> str:
-    """
-    Convert an image file (JPG, PNG, BMP, TIFF, GIF, WEBP) to a PDF
-    using Pillow. The image is fitted to A4 size.
-    Returns the path of the generated PDF.
-    """
-    try:
-        from PIL import Image
+        from groq import Groq
     except ImportError:
-        raise RuntimeError(
-            "Pillow is not installed.\n"
-            "  Run: pip install pillow"
-        )
+        print("Groq not installed. Run: pip install groq")
+        sys.exit(1)
 
-    _check_file(image_path, IMAGE_EXTS)
+    api_key = os.environ.get("GROQ_API_KEY", "").strip()
+    if not api_key:
+        print("\n  Groq API key not found in environment.")
+        print("  Get a free key at: https://console.groq.com")
+        api_key = input("  Paste your GROQ_API_KEY here: ").strip()
+        if not api_key:
+            print("No API key provided. Exiting.")
+            sys.exit(1)
+        # Save for this session
+        os.environ["GROQ_API_KEY"] = api_key
 
-    abs_img = os.path.abspath(image_path)
-    orig_base = os.path.splitext(os.path.basename(abs_img))[0]
-
-    if out_dir:
-        os.makedirs(out_dir, exist_ok=True)
-    else:
-        out_dir = os.path.dirname(abs_img)
-
-    print(f"  Image      : {abs_img}")
-    print(f"  Output dir : {out_dir}")
-
-    # A4 at 150 DPI -> 1240 x 1754 px
-    A4_W, A4_H = 1240, 1754
-
-    img = Image.open(abs_img)
-
-    # Convert to RGB (handles PNG transparency, RGBA, palette modes)
-    if img.mode in ("RGBA", "P", "LA"):
-        background = Image.new("RGB", img.size, (255, 255, 255))
-        if img.mode == "P":
-            img = img.convert("RGBA")
-        background.paste(img, mask=img.split()[-1] if img.mode in ("RGBA", "LA") else None)
-        img = background
-    elif img.mode != "RGB":
-        img = img.convert("RGB")
-
-    # Fit image inside A4, preserving aspect ratio
-    img.thumbnail((A4_W, A4_H), Image.LANCZOS)
-
-    # Place on white A4 canvas, centred
-    canvas = Image.new("RGB", (A4_W, A4_H), (255, 255, 255))
-    x = (A4_W - img.width) // 2
-    y = (A4_H - img.height) // 2
-    canvas.paste(img, (x, y))
-
-    final_pdf = os.path.join(out_dir, orig_base + ".pdf")
-    canvas.save(final_pdf, "PDF", resolution=150)
-
-    print(f"  [OK] PDF created : {final_pdf}")
-    return final_pdf
+    return Groq(api_key=api_key)
 
 
-# -----------------------------------------------------------------------------
-# Feature 5 - Download / copy a PDF
-# -----------------------------------------------------------------------------
+# ── System prompt for Groq ────────────────────────────────────────────────────
 
-def download_pdf(pdf_path: str, out_dir: str) -> str:
-    """Copy a PDF to out_dir. Returns the destination path."""
-    _check_file(pdf_path, [".pdf"])
-    os.makedirs(out_dir, exist_ok=True)
+SYSTEM_PROMPT = """
+You are a smart print assistant. The user will describe what they want to do
+with one or more files in plain English. They may also ask for utility actions
+like listing printers.
 
-    dest = os.path.join(out_dir, os.path.basename(pdf_path))
-    shutil.copy2(pdf_path, dest)
+Your job is to extract ALL file intents and return ONLY a valid JSON object —
+no explanation, no markdown, no code fences — just raw JSON.
 
-    print(f"  Source   : {os.path.abspath(pdf_path)}")
-    print(f"  Saved to : {dest}")
-    print("  [OK] PDF downloaded (copied) successfully.")
-    return dest
+JSON schema:
+{
+  "jobs": [
+    {
+      "command":  string,        // one of: printers | print | toxpdf | pptpdf | wordpdf | imgpdf | download | xlprint | pptprint | wordprint | imgprint
+      "file":     string | null, // the file path for this job. null only for "printers"
+      "printer":  string | null, // printer name if mentioned, else null
+      "color":    "bw" | "color",// default "bw" unless user says color/colour
+      "copies":   integer,       // default 1
+      "out":      string | null  // output folder if mentioned, else null
+    }
+  ],
+  "clarify": string | null       // if you truly cannot understand the request, ask a short question. null otherwise
+}
 
+MULTI-FILE RULES:
+- If the user mentions multiple files, create one job object per file in the "jobs" array.
+- Each file gets its own command based on its extension.
+- Shared settings (color, copies, printer) apply to ALL jobs unless stated differently per file.
+- Example: "print sales.pdf, photo.jpg and slides.pptx in bw 2 copies"
+  → 3 jobs: print + imgprint + pptprint, all with color=bw, copies=2
 
-# -----------------------------------------------------------------------------
-# Feature 6 - Excel -> PDF -> Print
-# -----------------------------------------------------------------------------
+Command selection rules (per file extension):
+- User wants to LIST / SHOW / GET printers → "printers" (one job, no file)
+- .pdf → "print"
+- .xlsx / .xls / .xlsm → "xlprint"
+- .pptx / .ppt / .pptm / .odp → "pptprint"
+- .docx / .doc / .odt / .rtf → "wordprint"
+- .jpg / .jpeg / .png / .bmp / .tiff / .gif / .webp → "imgprint"
+- CONVERT only (no print): use toxpdf / pptpdf / wordpdf / imgpdf
+- DOWNLOAD/SAVE/COPY a PDF → "download"
 
-def excel_print(excel_path: str, printer_name: str = None,
-                out_dir: str = None, sumatra_hint: str = None, color: str = "bw", copies: int = 1):
-    """Convert Excel to PDF, then print it."""
-    print("[Step 1/2] Converting Excel to PDF ...")
-    pdf_path = excel_to_pdf(excel_path, out_dir)
-    print("[Step 2/2] Sending PDF to printer ...")
-    print_pdf(pdf_path, printer_name, sumatra_hint, color, copies)
+Color rules:
+- "black and white", "bw", "grayscale", "greyscale", "no color" → "bw"
+- "color", "colour", "in color", "coloured" → "color"
+- If not mentioned → default "bw"
 
+Copies rules:
+- Extract any number mentioned: "3 copies", "print 5", "×2" → that number
+- If not mentioned → 1
 
-# -----------------------------------------------------------------------------
-# Feature 7 - Image -> PDF -> Print
-# -----------------------------------------------------------------------------
-
-def image_print(image_path: str, printer_name: str = None,
-                out_dir: str = None, sumatra_hint: str = None, color: str = "bw", copies: int = 1):
-    """Convert image to PDF, then print it."""
-    print("[Step 1/2] Converting image to PDF ...")
-    pdf_path = image_to_pdf(image_path, out_dir)
-    print("[Step 2/2] Sending PDF to printer ...")
-    print_pdf(pdf_path, printer_name, sumatra_hint, color, copies)
-
-
-
-# -----------------------------------------------------------------------------
-# Feature 8 - PowerPoint -> PDF -> Print
-# -----------------------------------------------------------------------------
-
-def ppt_print(ppt_path: str, printer_name: str = None,
-              out_dir: str = None, sumatra_hint: str = None):
-    """Convert PowerPoint to PDF, then print it."""
-    print("[Step 1/2] Converting PowerPoint to PDF \u2026")
-    pdf_path = ppt_to_pdf(ppt_path, out_dir)
-    print("[Step 2/2] Sending PDF to printer \u2026")
-    print_pdf(pdf_path, printer_name, sumatra_hint)
+Always return valid JSON with a "jobs" array. Never return anything else.
+"""
 
 
-# -----------------------------------------------------------------------------
-# Feature 9 - Convert Word -> PDF
-# -----------------------------------------------------------------------------
+# ── Call Groq to parse the user intent ────────────────────────────────────────
 
-def word_to_pdf(word_path: str, out_dir: str = None) -> str:
+def parse_intent(client, user_input: str) -> dict:
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",  # fast + smart Groq model
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user",   "content": user_input},
+        ],
+        temperature=0,
+        max_tokens=800,  # increased for multi-file responses
+    )
+    raw = response.choices[0].message.content.strip()
+
+    # Strip any accidental markdown fences
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    raw = raw.strip()
+
+    try:
+        parsed = json.loads(raw)
+        # Normalise: if old single-job format returned, wrap it
+        if "jobs" not in parsed and "command" in parsed:
+            parsed = {"jobs": [parsed], "clarify": parsed.get("clarify")}
+        return parsed
+    except json.JSONDecodeError:
+        return {"clarify": f"I couldn't parse your request. Could you rephrase it?\n(Raw AI output: {raw})"}
+
+
+# ── Build and run the print_pdf.py command ────────────────────────────────────
+
+def run_single_job(job: dict, print_script: str, job_num: int = None, total: int = None) -> bool:
     """
-    Convert a Word file (.docx/.doc/.odt/.rtf) to PDF using LibreOffice.
-    Returns the path of the generated PDF.
+    Run one print/convert job. Returns True on success, False on failure.
+    job_num / total are used for progress display when printing multiple files.
     """
-    _require_windows()
-    _check_file(word_path, WORD_EXTS)
+    command = job.get("command")
+    file    = job.get("file")
+    printer = job.get("printer")
+    color   = job.get("color", "bw")
+    copies  = int(job.get("copies", 1))
+    out     = job.get("out")
 
-    soffice = _find_libreoffice()
-    abs_word = os.path.abspath(word_path)
-    ext = os.path.splitext(abs_word)[1]
-    orig_base = os.path.splitext(os.path.basename(abs_word))[0]
+    prefix = ""
+    if job_num is not None and total is not None and total > 1:
+        prefix = f"[{job_num}/{total}] "
 
-    if out_dir:
-        os.makedirs(out_dir, exist_ok=True)
-    else:
-        out_dir = os.path.dirname(abs_word)
+    if not command:
+        print(f"  {prefix}✗ Could not determine command. Skipping.")
+        return False
 
-    print(f"  Word       : {abs_word}")
-    print(f"  Output dir : {out_dir}")
-    print(f"  LibreOffice: {soffice}")
+    # printers command needs no file
+    if command == "printers":
+        cmd = [sys.executable, print_script, "printers"]
+        display_cmd = " ".join(cmd)
+        print(f"\n  {prefix}Running: {display_cmd}\n")
+        subprocess.run(cmd)
+        return True
 
-    with tempfile.TemporaryDirectory() as tmp:
-        safe_copy = os.path.join(tmp, "input" + ext)
-        shutil.copy2(abs_word, safe_copy)
+    if not file:
+        print(f"  {prefix}✗ No file path found. Skipping.")
+        return False
 
-        cmd = [soffice, "--headless", "--convert-to", "pdf", "--outdir", tmp, safe_copy]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+    # Build the CLI command
+    cmd = [sys.executable, print_script, command, file]
 
-        if result.returncode != 0:
-            raise RuntimeError(
-                f"LibreOffice conversion failed (exit {result.returncode}):\n"
-                f"  {result.stderr.strip() or result.stdout.strip()}"
-            )
+    print_commands   = {"print", "xlprint", "pptprint", "wordprint", "imgprint"}
+    convert_commands = {"toxpdf", "pptpdf", "wordpdf", "imgpdf"}
 
-        tmp_pdf = os.path.join(tmp, "input.pdf")
-        if not os.path.isfile(tmp_pdf):
-            raise RuntimeError(
-                f"Conversion succeeded but PDF not found.\n"
-                f"LibreOffice output: {result.stdout.strip()}"
-            )
+    if command in print_commands:
+        if printer:
+            cmd += ["--printer", printer]
+        cmd += ["--color", color]
+        cmd += ["--copies", str(copies)]
+        if out:
+            cmd += ["--out", out]
 
-        final_pdf = os.path.join(out_dir, orig_base + ".pdf")
-        shutil.move(tmp_pdf, final_pdf)
+    elif command in convert_commands:
+        if out:
+            cmd += ["--out", out]
 
-    print(f"  [OK] PDF created : {final_pdf}")
-    return final_pdf
+    elif command == "download":
+        if out:
+            cmd += ["--out", out]
+        else:
+            out = input(f"  {prefix}Where to save? Enter folder path: ").strip()
+            if out:
+                cmd += ["--out", out]
+            else:
+                print(f"  {prefix}✗ Output folder required. Skipping.")
+                return False
+
+    display_cmd = " ".join(f'"{c}"' if " " in c else c for c in cmd)
+    print(f"\n  {prefix}Running: {display_cmd}\n")
+
+    result = subprocess.run(cmd)
+    if result.returncode != 0:
+        print(f"\n  {prefix}✗ Command failed. See error above.")
+        return False
+    return True
 
 
-# -----------------------------------------------------------------------------
-# Feature 10 - Word -> PDF -> Print
-# -----------------------------------------------------------------------------
+def run_command(intent: dict) -> None:
+    """
+    Run all jobs from the parsed intent, one by one.
+    Shows progress when multiple files are involved.
+    """
+    script_dir   = os.path.dirname(os.path.abspath(__file__))
+    print_script = os.path.join(script_dir, "print_pdf.py")
 
-def word_print(word_path: str, printer_name: str = None,
-               out_dir: str = None, sumatra_hint: str = None, color: str = "bw", copies: int = 1):
-    """Convert Word document to PDF, then print it."""
-    print("[Step 1/2] Converting Word to PDF ...")
-    pdf_path = word_to_pdf(word_path, out_dir)
-    print("[Step 2/2] Sending PDF to printer ...")
-    print_pdf(pdf_path, printer_name, sumatra_hint, color, copies)
+    if not os.path.isfile(print_script):
+        print(f"\n  ✗ Could not find print_pdf.py at: {print_script}")
+        print("    Make sure ai_print.py and print_pdf.py are in the same folder.")
+        return
 
-# -----------------------------------------------------------------------------
-# CLI
-# -----------------------------------------------------------------------------
+    jobs  = intent.get("jobs", [])
+    total = len(jobs)
+
+    if total == 0:
+        print("  ✗ No jobs found. Please try again.")
+        return
+
+    success_count = 0
+    for i, job in enumerate(jobs, start=1):
+        ok = run_single_job(job, print_script, job_num=i, total=total)
+        if ok:
+            success_count += 1
+        if i < total:
+            print()  # blank line between jobs
+
+    if total > 1:
+        print(f"\n  ━━━ Done: {success_count}/{total} jobs completed successfully. ━━━")
+
+
+# ── Pretty summary of what AI understood ─────────────────────────────────────
+
+def summarise_intent(intent: dict) -> str:
+    cmd_labels = {
+        "printers":   "List available printers",
+        "print":      "Print PDF",
+        "xlprint":    "Convert Excel → PDF → Print",
+        "pptprint":   "Convert PowerPoint → PDF → Print",
+        "wordprint":  "Convert Word → PDF → Print",
+        "imgprint":   "Convert Image → PDF → Print",
+        "toxpdf":     "Convert Excel → PDF",
+        "pptpdf":     "Convert PowerPoint → PDF",
+        "wordpdf":    "Convert Word → PDF",
+        "imgpdf":     "Convert Image → PDF",
+        "download":   "Download / Save PDF copy",
+    }
+    print_commands = {"print", "xlprint", "pptprint", "wordprint", "imgprint"}
+
+    jobs  = intent.get("jobs", [])
+    total = len(jobs)
+    lines = []
+
+    for i, job in enumerate(jobs, start=1):
+        cmd     = job.get("command", "?")
+        file    = job.get("file", "?")
+        printer = job.get("printer") or "system default"
+        color   = job.get("color", "bw")
+        copies  = job.get("copies", 1)
+        out     = job.get("out") or "same folder as file"
+
+        if total > 1:
+            lines.append(f"  ── Job {i} of {total} ──────────────────────")
+
+        if cmd == "printers":
+            lines.append("  Action   : List all available printers")
+            continue
+
+        lines.append(f"  Action   : {cmd_labels.get(cmd, cmd)}")
+        lines.append(f"  File     : {file}")
+        if cmd in print_commands:
+            lines.append(f"  Printer  : {printer}")
+            lines.append(f"  Color    : {'Full Color' if color == 'color' else 'Black & White'}")
+            lines.append(f"  Copies   : {copies}")
+        if out != "same folder as file":
+            lines.append(f"  Save to  : {out}")
+
+    return "\n".join(lines)
+
+
+# ── Help text ─────────────────────────────────────────────────────────────────
+
+HELP_TEXT = """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ AI PRINT ASSISTANT — Example prompts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  List printers:
+    List my printers
+    Show available printers
+    What printers do I have?
+
+  Print a PDF:
+    Print C:/reports/sales.pdf in black and white
+    Print C:/reports/sales.pdf, 3 copies, color, HP LaserJet
+
+  Print Excel:
+    Print C:/data/budget.xlsx 2 copies bw
+    Convert and print C:/data/budget.xlsx in color
+
+  Print PowerPoint:
+    Print C:/slides/deck.pptx black and white 5 copies
+
+  Print Word:
+    Print C:/docs/letter.docx on Canon printer in color
+
+  Print Image:
+    Print C:/pics/photo.jpg in color, 2 copies
+
+  Convert to PDF only (no printing):
+    Convert C:/data/report.xlsx to PDF and save to C:/exports
+    Convert C:/slides/presentation.pptx to PDF
+
+  Save a PDF copy:
+    Save a copy of C:/reports/final.pdf to C:/Users/lalit/Downloads
+
+  Multiple files at once:
+    Print C:/docs/report.pdf and C:/pics/photo.jpg in black and white
+    Print C:/report.pdf, C:/slides.pptx and C:/photo.png 2 copies color
+    Print C:/a.pdf C:/b.xlsx C:/c.pptx on HP LaserJet bw 3 copies
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
+# ── Main interactive loop ─────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(
-        prog="print_pdf.py",
-        description="PDF, Excel & Image printing utility for Windows.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__,
-    )
-    sub = parser.add_subparsers(dest="command", metavar="COMMAND")
+    print("\n" + "━"*54)
+    print("  🖨  AI Print Assistant  (powered by Groq)")
+    print("━"*54)
+    print("  Type your request in plain English.")
+    print("  Type 'help' for examples, 'quit' to exit.")
+    print("━"*54 + "\n")
 
-    # printers
-    sub.add_parser("printers", help="List all available printers.")
+    client = get_groq_client()
 
-    # print
-    p_print = sub.add_parser("print", help="Print a PDF file.")
-    p_print.add_argument("pdf", help="Path to the PDF file.")
-    p_print.add_argument("--printer", "-p", help="Printer name (default: system default).")
-    p_print.add_argument("--sumatra", help="Path to SumatraPDF.exe.")
-    p_print.add_argument("--copies", "-n", type=int, default=1, metavar="N",
-                        help="Number of copies to print (default: 1).")
-    p_print.add_argument("--color", choices=["bw", "color"], default="bw",
-                        help='Color mode: "bw" = black & white (default, uses Ghostscript to strip color), '
-                             '"color" = full color. If --color is omitted, bw is used.')
+    while True:
+        try:
+            user_input = input("You: ").strip()
+        except (KeyboardInterrupt, EOFError):
+            print("\n  Goodbye!")
+            break
 
-    # toxpdf  (Excel -> PDF)
-    p_toxpdf = sub.add_parser("toxpdf", help="Convert Excel file to PDF.")
-    p_toxpdf.add_argument("excel", help="Path to the .xlsx / .xls file.")
-    p_toxpdf.add_argument("--out", "-o", help="Output folder (default: same folder as Excel).")
+        if not user_input:
+            continue
 
-    # pptpdf  (PowerPoint -> PDF)
-    p_pptpdf = sub.add_parser("pptpdf", help="Convert PowerPoint file to PDF.")
-    p_pptpdf.add_argument("ppt", help="Path to the .pptx / .ppt file.")
-    p_pptpdf.add_argument("--out", "-o", help="Output folder (default: same folder as PPT).")
+        if user_input.lower() in ("quit", "exit", "q"):
+            print("  Goodbye!")
+            break
 
-    # wordpdf (Word -> PDF)
-    p_wordpdf = sub.add_parser("wordpdf", help="Convert Word file to PDF.")
-    p_wordpdf.add_argument("word", help="Path to the .docx / .doc file.")
-    p_wordpdf.add_argument("--out", "-o", help="Output folder (default: same folder as Word file).")
+        if user_input.lower() in ("help", "h", "?"):
+            print(HELP_TEXT)
+            continue
 
-    # imgpdf  (Image -> PDF)
-    p_imgpdf = sub.add_parser("imgpdf", help="Convert image file to PDF.")
-    p_imgpdf.add_argument("image", help="Path to the image file (JPG/PNG/BMP/TIFF/GIF/WEBP).")
-    p_imgpdf.add_argument("--out", "-o", help="Output folder (default: same folder as image).")
+        print("\n  Thinking…")
+        intent = parse_intent(client, user_input)
 
-    # download
-    p_dl = sub.add_parser("download", help="Save/download a copy of a PDF.")
-    p_dl.add_argument("pdf", help="Path to the PDF file.")
-    p_dl.add_argument("--out", "-o", required=True, help="Destination folder.")
+        # If AI needs clarification
+        if intent.get("clarify"):
+            print(f"\n  AI: {intent['clarify']}\n")
+            continue
 
-    # xlprint (Excel -> PDF -> print)
-    p_xlp = sub.add_parser("xlprint", help="Convert Excel to PDF and print it.")
-    p_xlp.add_argument("excel", help="Path to the .xlsx / .xls file.")
-    p_xlp.add_argument("--printer", "-p", help="Printer name (default: system default).")
-    p_xlp.add_argument("--out", "-o", help="Folder to save the PDF.")
-    p_xlp.add_argument("--sumatra", help="Path to SumatraPDF.exe.")
-    p_xlp.add_argument("--copies", "-n", type=int, default=1, metavar="N",
-                        help="Number of copies to print (default: 1).")
-    p_xlp.add_argument("--color", choices=["bw", "color"], default="bw",
-                        help='Color mode: "bw" = black & white (default, uses Ghostscript to strip color), '
-                             '"color" = full color. If --color is omitted, bw is used.')
+        # Show summary and confirm
+        print("\n  Here's what I understood:\n")
+        print(summarise_intent(intent))
+        print()
 
-    # pptprint (PowerPoint -> PDF -> print)
-    p_pptp = sub.add_parser("pptprint", help="Convert PowerPoint to PDF and print it.")
-    p_pptp.add_argument("ppt", help="Path to the .pptx / .ppt file.")
-    p_pptp.add_argument("--printer", "-p", help="Printer name (default: system default).")
-    p_pptp.add_argument("--out", "-o", help="Folder to save the PDF.")
-    p_pptp.add_argument("--sumatra", help="Path to SumatraPDF.exe.")
-    p_pptp.add_argument("--copies", "-n", type=int, default=1, metavar="N",
-                        help="Number of copies to print (default: 1).")
-    p_pptp.add_argument("--color", choices=["bw", "color"], default="bw",
-                        help='Color mode: "bw" = black & white (default, uses Ghostscript to strip color), '
-                             '"color" = full color. If --color is omitted, bw is used.')
+        confirm = input("  Proceed? [Y/n]: ").strip().lower()
+        if confirm in ("", "y", "yes"):
+            run_command(intent)
+        else:
+            print("  Cancelled.\n")
 
-    # wordprint (Word -> PDF -> print)
-    p_wordp = sub.add_parser("wordprint", help="Convert Word file to PDF and print it.")
-    p_wordp.add_argument("word", help="Path to the .docx / .doc file.")
-    p_wordp.add_argument("--printer", "-p", help="Printer name (default: system default).")
-    p_wordp.add_argument("--out", "-o", help="Folder to save the PDF.")
-    p_wordp.add_argument("--sumatra", help="Path to SumatraPDF.exe.")
-    p_wordp.add_argument("--copies", "-n", type=int, default=1, metavar="N",
-                        help="Number of copies to print (default: 1).")
-    p_wordp.add_argument("--color", choices=["bw", "color"], default="bw",
-                        help='Color mode: "bw" = black & white (default, uses Ghostscript to strip color), '
-                             '"color" = full color. If --color is omitted, bw is used.')
-
-    # imgprint (Image -> PDF -> print)
-    p_imp = sub.add_parser("imgprint", help="Convert image to PDF and print it.")
-    p_imp.add_argument("image", help="Path to the image file (JPG/PNG/BMP/TIFF/GIF/WEBP).")
-    p_imp.add_argument("--printer", "-p", help="Printer name (default: system default).")
-    p_imp.add_argument("--out", "-o", help="Folder to save the PDF.")
-    p_imp.add_argument("--sumatra", help="Path to SumatraPDF.exe.")
-    p_imp.add_argument("--copies", "-n", type=int, default=1, metavar="N",
-                        help="Number of copies to print (default: 1).")
-    p_imp.add_argument("--color", choices=["bw", "color"], default="bw",
-                        help='Color mode: "bw" = black & white (default, uses Ghostscript to strip color), '
-                             '"color" = full color. If --color is omitted, bw is used.')
-
-    args = parser.parse_args()
-
-    if not args.command:
-        parser.print_help()
-        sys.exit(0)
-
-    try:
-        if args.command == "printers":
-            printers = get_available_printers()
-            if printers:
-                print("Available printers:")
-                for p in printers:
-                    print(f"  * {p}")
-            else:
-                print("No printers found.")
-
-        elif args.command == "print":
-            print_pdf(args.pdf, args.printer, args.sumatra, args.color, args.copies)
-
-        elif args.command == "toxpdf":
-            excel_to_pdf(args.excel, args.out)
-
-        elif args.command == "pptpdf":
-            ppt_to_pdf(args.ppt, args.out)
-
-        elif args.command == "wordpdf":
-            word_to_pdf(args.word, args.out)
-
-        elif args.command == "imgpdf":
-            image_to_pdf(args.image, args.out)
-
-        elif args.command == "download":
-            download_pdf(args.pdf, args.out)
-
-        elif args.command == "xlprint":
-            excel_print(args.excel, args.printer, args.out, args.sumatra, args.color, args.copies)
-
-        elif args.command == "pptprint":
-            ppt_print(args.ppt, args.printer, args.out, args.sumatra, args.color, args.copies)
-
-        elif args.command == "wordprint":
-            word_print(args.word, args.printer, args.out, args.sumatra, args.color, args.copies)
-
-        elif args.command == "imgprint":
-            image_print(args.image, args.printer, args.out, args.sumatra, args.color, args.copies)
-
-    except (FileNotFoundError, ValueError, OSError, RuntimeError) as exc:
-        print(f"\nError: {exc}", file=sys.stderr)
-        sys.exit(1)
+        print()
 
 
 if __name__ == "__main__":
